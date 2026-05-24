@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DrunkMaxx
 
-## Getting Started
+**Maxx Your Buzz. Double X.**
 
-First, run the development server:
+The provocative PWA for finding the best places to get drunk based on **vibe + budget + real menu math**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Live prototype: https://github.com/buildleansaas/drunkmaxx (deploy to Vercel for instant PWA preview)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## The Idea (spiked from voice note)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+People ask "yo where should we go get drunk?" 
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+One guy says "I know how to **DrunkMaxx**."
 
-## Learn More
+This app calculates the **highest level of intoxication** you can achieve for your exact budget in your chosen vibe by analyzing drink prices vs ABV/proof.
 
-To learn more about Next.js, take a look at the following resources:
+- Interactive "Drunk Maxx Calculator"
+- Vibe cards (Dive Bar, Neon Club, Cocktail Lounge, Sports, Social Mixer, Rooftop)
+- Live leaderboard of top spots with DrunkMaxx Scores
+- Funny intoxication levels ("Properly Sauced", "Blackout Ready", "Legendary Maxx")
+- Dark neon aesthetic, fully responsive, PWA installable on phone for nights out
+- Completely non-sexual despite the provocative name — pure drunk-maxxing fun
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Built as a single Next.js PWA to validate the concept before full backend/menu-scraping development.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech
 
-## Deploy on Vercel
+- Next.js 16 + TypeScript + Tailwind
+- Client-side React state for the calculator (fixture data for Austin, TX bars)
+- PWA-ready with manifest
+- Glassmorphic + neon glow UI
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Next Steps
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Deploy this to Vercel for a live URL.
+2. Add real data sources (menu APIs, Google Places, user submissions).
+3. Group sessions / shareable maxx plans.
+4. City "Nomad Lists" for drinking.
+5. Full mobile app if PWA traction is strong.
+
+**Drink responsibly. Maxx wisely.**
+
+See `docs/product-brief.md` for full product thesis.

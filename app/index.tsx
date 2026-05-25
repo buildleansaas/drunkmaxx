@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -29,12 +30,52 @@ type DrinkStickerProps = {
   style?: object;
 };
 
+type BarResult = {
+  rank: number;
+  name: string;
+  deal: string;
+  economics: string;
+  score: number;
+  distance: string;
+  freshness: string;
+};
+
 const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
   beer: require('../assets/drinks/beer.png'),
   martini: require('../assets/drinks/martini.png'),
   wine: require('../assets/drinks/wine.png'),
   cocktail: require('../assets/drinks/cocktail.png'),
 };
+
+const cachedResults: BarResult[] = [
+  {
+    rank: 1,
+    name: 'Cobra Cabana',
+    deal: '$3.50 High Life',
+    economics: '12oz · 4.6% · $3.50',
+    score: 94,
+    distance: '0.7 mi',
+    freshness: 'Updated 3h ago',
+  },
+  {
+    rank: 2,
+    name: 'Bamboo Cafe',
+    deal: '$4 rail whiskey',
+    economics: '1.5oz · 40% · $4',
+    score: 89,
+    distance: '1.1 mi',
+    freshness: 'Updated today',
+  },
+  {
+    rank: 3,
+    name: 'GWARbar',
+    deal: '$5 draft special',
+    economics: '16oz · 5.2% · $5',
+    score: 82,
+    distance: '1.4 mi',
+    freshness: 'Refreshing',
+  },
+];
 
 function StickerBadge() {
   return (
@@ -77,16 +118,16 @@ function LocationPin() {
   );
 }
 
-function LocationButton() {
+function LocationButton({ onSearch }: { onSearch: () => void }) {
   return (
-    <Pressable style={styles.locationButton} accessibilityRole="button">
+    <Pressable style={styles.locationButton} accessibilityRole="button" onPress={onSearch}>
       <LocationPin />
       <Text style={styles.locationButtonText}>Use my location</Text>
     </Pressable>
   );
 }
 
-function ZipSearch() {
+function ZipSearch({ onSearch }: { onSearch: () => void }) {
   return (
     <View style={styles.zipRow}>
       <View style={styles.zipInputWrap}>
@@ -96,9 +137,10 @@ function ZipSearch() {
           placeholderTextColor="#9B9B9B"
           keyboardType="number-pad"
           style={styles.zipInput}
+          onSubmitEditing={onSearch}
         />
       </View>
-      <Pressable style={styles.findButton} accessibilityRole="button">
+      <Pressable style={styles.findButton} accessibilityRole="button" onPress={onSearch}>
         <Text style={styles.findButtonText}>Find bars</Text>
       </Pressable>
     </View>
@@ -113,7 +155,77 @@ function TrustLine() {
   );
 }
 
-export default function NorthStarScreen() {
+function RefreshingStatusStrip() {
+  return (
+    <View style={styles.refreshStrip}>
+      <Text style={styles.refreshTitle}>Refreshing drink intel</Text>
+      <Text style={styles.refreshCopy}>Using cached picks while we check for updates.</Text>
+    </View>
+  );
+}
+
+function RankedBarCard({ result }: { result: BarResult }) {
+  return (
+    <View style={styles.resultCard}>
+      <View style={styles.rankPill}>
+        <Text style={styles.rankText}>#{result.rank}</Text>
+      </View>
+      <View style={styles.cardMain}>
+        <Text style={styles.barName}>{result.name}</Text>
+        <Text style={styles.dealLabel}>Best known deal</Text>
+        <Text style={styles.dealText}>{result.deal}</Text>
+        <Text style={styles.economicsText}>{result.economics}</Text>
+        <View style={styles.cardMetaRow}>
+          <Text style={styles.scoreText}>{result.score} buzz/$</Text>
+          <Text style={styles.distanceText}>{result.distance}</Text>
+          <Text style={styles.freshnessText}>{result.freshness}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function DancingDrinksLoader() {
+  return (
+    <View style={styles.loaderPanel}>
+      <View style={styles.danceRow}>
+        <Image source={drinkAssets.beer} style={[styles.danceDrink, styles.danceOne]} resizeMode="contain" />
+        <Image source={drinkAssets.martini} style={[styles.danceDrink, styles.danceTwo]} resizeMode="contain" />
+        <Image source={drinkAssets.wine} style={[styles.danceDrink, styles.danceThree]} resizeMode="contain" />
+        <Image source={drinkAssets.cocktail} style={[styles.danceDrink, styles.danceFour]} resizeMode="contain" />
+      </View>
+      <View style={styles.loaderTextBlock}>
+        <Text style={styles.loaderTitle}>Checking tonight’s drink intel</Text>
+        <Text style={styles.loaderStage}>Looking for menus…</Text>
+      </View>
+    </View>
+  );
+}
+
+function ResultsScreen({ onReset }: { onReset: () => void }) {
+  return (
+    <SafeAreaView style={styles.screen} testID="results-screen">
+      <ScrollView contentContainerStyle={styles.resultsCanvas}>
+        <StickerBadge />
+        <Text style={styles.resultsTitle}>Tonight’s cheapest buzz</Text>
+        <Text style={styles.resultsSubtitle}>Near your location</Text>
+        <RefreshingStatusStrip />
+        <Text style={styles.loadedToast}>Cached picks loaded from our latest bar intel.</Text>
+        <DancingDrinksLoader />
+        <View style={styles.resultsList}>
+          {cachedResults.map((result) => (
+            <RankedBarCard key={result.rank} result={result} />
+          ))}
+        </View>
+        <Pressable style={styles.secondaryButton} onPress={onReset} accessibilityRole="button">
+          <Text style={styles.secondaryButtonText}>Try another ZIP</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function LocationGate({ onSearch }: { onSearch: () => void }) {
   return (
     <SafeAreaView style={styles.screen} testID="north-star-screen">
       <View style={styles.canvas}>
@@ -132,18 +244,28 @@ export default function NorthStarScreen() {
         <DrinkSticker type="cocktail" style={styles.cocktailSticker} />
 
         <View style={styles.formArea}>
-          <LocationButton />
+          <LocationButton onSearch={onSearch} />
           <View style={styles.orRow}>
             <View style={styles.orLine} />
             <Text style={styles.orText}>OR</Text>
             <View style={styles.orLine} />
           </View>
-          <ZipSearch />
+          <ZipSearch onSearch={onSearch} />
           <TrustLine />
         </View>
       </View>
     </SafeAreaView>
   );
+}
+
+export default function NorthStarScreen() {
+  const [screen, setScreen] = useState<'location' | 'results'>('location');
+
+  if (screen === 'results') {
+    return <ResultsScreen onReset={() => setScreen('location')} />;
+  }
+
+  return <LocationGate onSearch={() => setScreen('results')} />;
 }
 
 const styles = StyleSheet.create({
@@ -163,6 +285,16 @@ const styles = StyleSheet.create({
     paddingTop: 58,
     position: 'relative',
     overflow: 'hidden',
+  },
+  resultsCanvas: {
+    width: '100%',
+    maxWidth: 430,
+    minHeight: 820,
+    backgroundColor: tokens.paper,
+    paddingHorizontal: 18,
+    paddingTop: 38,
+    paddingBottom: 34,
+    alignItems: 'center',
   },
   badgeWrap: {
     flexDirection: 'row',
@@ -360,4 +492,208 @@ const styles = StyleSheet.create({
   starOne: { right: 66, top: 365 },
   starTwo: { right: 40, top: 406, fontSize: 24 },
   starThree: { right: 52, bottom: 198, fontSize: 22 },
+  resultsTitle: {
+    color: tokens.ink,
+    fontSize: 50,
+    lineHeight: 52,
+    fontWeight: '900',
+    letterSpacing: -2,
+    fontFamily: 'Arial Black',
+    textAlign: 'center',
+    marginTop: -20,
+  },
+  resultsSubtitle: {
+    color: tokens.muted,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  refreshStrip: {
+    width: '100%',
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#E8DCCB',
+    backgroundColor: tokens.white,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+  },
+  refreshTitle: {
+    color: tokens.ink,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  refreshCopy: {
+    color: tokens.muted,
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  loadedToast: {
+    width: '100%',
+    color: '#4D4D4D',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  resultsList: {
+    width: '100%',
+    gap: 12,
+  },
+  resultCard: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 24,
+    borderWidth: 1.3,
+    borderColor: '#E8DCCB',
+    backgroundColor: tokens.white,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+  },
+  rankPill: {
+    width: 48,
+    height: 48,
+    borderRadius: 18,
+    backgroundColor: tokens.amber,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.amberDark,
+  },
+  rankText: {
+    color: tokens.ink,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  cardMain: { flex: 1 },
+  barName: {
+    color: tokens.ink,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  dealLabel: {
+    color: tokens.lime,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: 8,
+  },
+  dealText: {
+    color: tokens.ink,
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  economicsText: {
+    color: tokens.muted,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  scoreText: {
+    color: tokens.ink,
+    backgroundColor: '#F5EBCB',
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    fontWeight: '900',
+  },
+  distanceText: {
+    color: tokens.ink,
+    backgroundColor: '#EFF0D6',
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    fontWeight: '800',
+  },
+  freshnessText: {
+    color: tokens.muted,
+    backgroundColor: '#F3EEE7',
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    fontWeight: '800',
+  },
+  loaderPanel: {
+    width: '100%',
+    alignItems: 'center',
+    flexDirection: 'row',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#E8DCCB',
+    backgroundColor: '#FFF9ED',
+    marginTop: 4,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  loaderTextBlock: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  loaderTitle: {
+    color: tokens.ink,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  loaderCopy: {
+    color: tokens.muted,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 7,
+  },
+  danceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    width: 142,
+    height: 58,
+  },
+  danceDrink: { width: 42, height: 52, marginHorizontal: -5 },
+  danceOne: { transform: [{ rotate: '-8deg' }, { translateY: 5 }] },
+  danceTwo: { transform: [{ rotate: '6deg' }, { translateY: -6 }] },
+  danceThree: { transform: [{ rotate: '-4deg' }, { translateY: 2 }] },
+  danceFour: { transform: [{ rotate: '8deg' }, { translateY: -4 }] },
+  loaderStage: {
+    color: tokens.ink,
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  secondaryButton: {
+    marginTop: 16,
+    borderRadius: 18,
+    borderWidth: 1.4,
+    borderColor: '#D8CCBC',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    backgroundColor: tokens.white,
+  },
+  secondaryButtonText: {
+    color: tokens.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
 });

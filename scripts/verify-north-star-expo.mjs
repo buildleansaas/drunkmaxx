@@ -28,6 +28,12 @@ const requiredCopy = [
   'Enter ZIP code',
   'Find bars',
   'We use this once to rank nearby drink value.',
+  'Tonight’s cheapest buzz',
+  'Refreshing drink intel',
+  'Checking tonight’s drink intel',
+  'Using cached picks while we check for updates.',
+  'Best known deal',
+  'Cached picks loaded',
 ];
 for (const copy of requiredCopy) {
   assert(app.includes(copy), `app/index.tsx contains copy: ${copy}`);
@@ -39,6 +45,10 @@ const requiredComponents = [
   'LocationButton',
   'ZipSearch',
   'TrustLine',
+  'ResultsScreen',
+  'RefreshingStatusStrip',
+  'DancingDrinksLoader',
+  'RankedBarCard',
 ];
 for (const component of requiredComponents) {
   assert(app.includes(component), `app/index.tsx defines/uses component: ${component}`);

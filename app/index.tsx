@@ -234,7 +234,7 @@ function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: ()
         <Text style={styles.resultsTitle}>Tonight’s cheapest buzz</Text>
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
         <RefreshingStatusStrip />
-        <Text style={styles.loadedToast}>Demo cache for {lookup.lookupLabel}. Cached picks loaded from our latest bar intel.</Text>
+        <Text style={styles.loadedToast}>Showing cached picks for {lookup.lookupLabel} while we refresh tonight’s deals.</Text>
         <DancingDrinksLoader />
         <View style={styles.resultsList}>
           {cachedResults.map((result) => (

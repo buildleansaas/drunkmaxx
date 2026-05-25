@@ -33,11 +33,10 @@ const requiredCopy = [
   'Checking tonight’s drink intel',
   'Using cached picks while we check for updates.',
   'Best known deal',
-  'Cached picks loaded',
   'Allow location access',
   'Use this ZIP to find bars',
   'Enter a ZIP first',
-  'Demo cache for',
+  'Showing cached picks for',
 ];
 for (const copy of requiredCopy) {
   assert(app.includes(copy), `app/index.tsx contains copy: ${copy}`);
@@ -72,7 +71,7 @@ assert(app.includes('navigator.geolocation.getCurrentPosition'), 'Use my locatio
 assert(app.includes('setLookupError'), 'ZIP path validates missing ZIP before lookup');
 assert(app.includes('zipValue.trim()'), 'Find bars uses the typed ZIP value for lookup context');
 assert(!app.includes("onSearch={() => setScreen('results')}"), 'location button must not jump directly to random fixture results');
-assert(app.includes('Demo cache for') && app.includes('lookupLabel'), 'results explain the current demo cache lookup context');
+assert(app.includes('Showing cached picks for') && app.includes('lookupLabel'), 'results explain the current cached lookup context');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

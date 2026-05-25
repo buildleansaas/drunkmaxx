@@ -108,9 +108,6 @@ function ZipSearch() {
 function TrustLine() {
   return (
     <View style={styles.trustLine}>
-      <View style={styles.lockBubble}>
-        <Text style={styles.lockText}>▢</Text>
-      </View>
       <Text style={styles.trustText}>We use this once to rank nearby drink value.</Text>
     </View>
   );
@@ -333,22 +330,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   trustLine: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 13,
-    marginTop: 31,
+    marginTop: 24,
+    paddingHorizontal: 48,
   },
-  lockBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#EEF2DD',
-    alignItems: 'center',
-    justifyContent: 'center',
+  trustText: {
+    color: '#565656',
+    fontSize: 15.5,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  lockText: { color: tokens.lime, fontSize: 20, fontWeight: '900' },
-  trustText: { color: '#565656', fontSize: 15.5, fontWeight: '500' },
   drinkSticker: {
     position: 'absolute',
     width: 78,

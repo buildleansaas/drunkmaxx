@@ -48,6 +48,7 @@ assert(app.includes('north-star-screen'), 'screen has north-star-screen testID')
 assert(app.includes('beer') && app.includes('martini') && app.includes('wine') && app.includes('cocktail'), 'screen includes four GPT-image drink sticker variants');
 assert(app.includes('assets/drinks/beer.png') && app.includes('assets/drinks/martini.png') && app.includes('assets/drinks/wine.png') && app.includes('assets/drinks/cocktail.png'), 'drink stickers use generated PNG app assets');
 assert(!app.includes('🍺') && !app.includes('🍸') && !app.includes('🍷') && !app.includes('🍹'), 'drink stickers are generated PNGs, not emoji stand-ins');
+assert(!app.includes('lockBubble') && !app.includes('lockText') && !app.includes('▢'), 'trust line has no fake checkbox/lock decoration');
 assert(app.includes('#FAF8F2') || app.includes('#fbf8f1'), 'uses warm off-white background token');
 assert(app.includes('#F6B329') || app.includes('#f6b329'), 'uses amber CTA token');
 assert(app.includes('fontFamily'), 'uses explicit typography styling for theme');

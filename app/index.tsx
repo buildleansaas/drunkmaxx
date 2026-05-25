@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  Image,
+  ImageSourcePropType,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -23,15 +25,15 @@ const tokens = {
 const HERO_TITLE = 'Let’s Get Drunk';
 
 type DrinkStickerProps = {
-  type: 'beer' | 'martini' | 'wine' | 'citrus';
+  type: 'beer' | 'martini' | 'wine' | 'cocktail';
   style?: object;
 };
 
-const drinkMeta = {
-  beer: { emoji: '🍺', face: '◕‿◕', tint: '#F8B940' },
-  martini: { emoji: '🍸', face: '⌣', tint: '#F8F8F3' },
-  wine: { emoji: '🍷', face: '•‿•', tint: '#C44B59' },
-  citrus: { emoji: '🍹', face: '＾▽＾', tint: '#F3B13B' },
+const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
+  beer: require('../assets/drinks/beer.png'),
+  martini: require('../assets/drinks/martini.png'),
+  wine: require('../assets/drinks/wine.png'),
+  cocktail: require('../assets/drinks/cocktail.png'),
 };
 
 function StickerBadge() {
@@ -57,16 +59,13 @@ function Spark({ side }: { side: 'left' | 'right' }) {
 }
 
 function DrinkSticker({ type, style }: DrinkStickerProps) {
-  const meta = drinkMeta[type];
   return (
-    <View style={[styles.drinkSticker, style]}>
-      <Text style={styles.drinkEmoji}>{meta.emoji}</Text>
-      <Text style={styles.drinkFace}>{meta.face}</Text>
-      <View style={[styles.drinkArm, styles.leftArm]} />
-      <View style={[styles.drinkArm, styles.rightArm]} />
-      <View style={[styles.drinkLeg, styles.leftLeg]} />
-      <View style={[styles.drinkLeg, styles.rightLeg]} />
-    </View>
+    <Image
+      source={drinkAssets[type]}
+      style={[styles.drinkSticker, style]}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
@@ -133,7 +132,7 @@ export default function NorthStarScreen() {
         <DrinkSticker type="beer" style={styles.beerSticker} />
         <DrinkSticker type="martini" style={styles.martiniSticker} />
         <DrinkSticker type="wine" style={styles.wineSticker} />
-        <DrinkSticker type="citrus" style={styles.citrusSticker} />
+        <DrinkSticker type="cocktail" style={styles.cocktailSticker} />
 
         <View style={styles.formArea}>
           <LocationButton />
@@ -229,6 +228,7 @@ const styles = StyleSheet.create({
     maxWidth: 355,
     alignItems: 'center',
     marginTop: 8,
+    zIndex: 2,
   },
   locationButton: {
     width: '100%',
@@ -351,50 +351,14 @@ const styles = StyleSheet.create({
   trustText: { color: '#565656', fontSize: 15.5, fontWeight: '500' },
   drinkSticker: {
     position: 'absolute',
-    width: 74,
-    height: 92,
-    borderRadius: 28,
-    backgroundColor: tokens.white,
-    borderWidth: 4,
-    borderColor: tokens.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 7 },
+    width: 78,
+    height: 96,
+    zIndex: 1,
   },
-  drinkEmoji: { fontSize: 44, lineHeight: 48 },
-  drinkFace: {
-    position: 'absolute',
-    top: 39,
-    color: tokens.ink,
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  drinkArm: {
-    position: 'absolute',
-    width: 19,
-    height: 3,
-    backgroundColor: tokens.ink,
-    borderRadius: 6,
-  },
-  leftArm: { left: -7, top: 51, transform: [{ rotate: '55deg' }] },
-  rightArm: { right: -8, top: 43, transform: [{ rotate: '-55deg' }] },
-  drinkLeg: {
-    position: 'absolute',
-    width: 3,
-    height: 21,
-    backgroundColor: tokens.ink,
-    borderRadius: 6,
-    bottom: -11,
-  },
-  leftLeg: { left: 25, transform: [{ rotate: '28deg' }] },
-  rightLeg: { right: 25, transform: [{ rotate: '-28deg' }] },
-  beerSticker: { left: 28, top: 330, transform: [{ rotate: '-8deg' }] },
-  martiniSticker: { right: 28, top: 424, transform: [{ rotate: '9deg' }] },
-  wineSticker: { left: 28, bottom: 100, transform: [{ rotate: '-5deg' }] },
-  citrusSticker: { right: 28, bottom: 55, transform: [{ rotate: '6deg' }] },
+  beerSticker: { left: 14, top: 315, transform: [{ rotate: '-8deg' }] },
+  martiniSticker: { right: 13, top: 420, transform: [{ rotate: '9deg' }] },
+  wineSticker: { left: -2, bottom: 22, transform: [{ rotate: '-5deg' }] },
+  cocktailSticker: { right: -4, bottom: 3, transform: [{ rotate: '6deg' }] },
   star: {
     position: 'absolute',
     color: tokens.lime,

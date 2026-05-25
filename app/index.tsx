@@ -40,6 +40,13 @@ type BarResult = {
   freshness: string;
 };
 
+type LookupContext = {
+  kind: 'gps' | 'zip';
+  lookupLabel: string;
+};
+
+type LocationStatus = 'idle' | 'requesting' | 'error';
+
 const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
   beer: require('../assets/drinks/beer.png'),
   martini: require('../assets/drinks/martini.png'),
@@ -118,16 +125,16 @@ function LocationPin() {
   );
 }
 
-function LocationButton({ onSearch }: { onSearch: () => void }) {
+function LocationButton({ onSearch, status }: { onSearch: () => void; status: LocationStatus }) {
   return (
-    <Pressable style={styles.locationButton} accessibilityRole="button" onPress={onSearch}>
+    <Pressable style={styles.locationButton} accessibilityRole="button" onPress={onSearch} disabled={status === 'requesting'}>
       <LocationPin />
-      <Text style={styles.locationButtonText}>Use my location</Text>
+      <Text style={styles.locationButtonText}>{status === 'requesting' ? 'Allow location access' : 'Use my location'}</Text>
     </Pressable>
   );
 }
 
-function ZipSearch({ onSearch }: { onSearch: () => void }) {
+function ZipSearch({ zipValue, onZipChange, onSearch }: { zipValue: string; onZipChange: (value: string) => void; onSearch: () => void }) {
   return (
     <View style={styles.zipRow}>
       <View style={styles.zipInputWrap}>
@@ -137,12 +144,29 @@ function ZipSearch({ onSearch }: { onSearch: () => void }) {
           placeholderTextColor="#9B9B9B"
           keyboardType="number-pad"
           style={styles.zipInput}
+          value={zipValue}
+          onChangeText={onZipChange}
           onSubmitEditing={onSearch}
         />
       </View>
       <Pressable style={styles.findButton} accessibilityRole="button" onPress={onSearch}>
         <Text style={styles.findButtonText}>Find bars</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function LocationPermissionPanel({ status, error }: { status: LocationStatus; error?: string }) {
+  if (status === 'idle' && !error) return null;
+
+  return (
+    <View style={styles.permissionPanel}>
+      <Text style={styles.permissionTitle}>{status === 'requesting' ? 'Allow location access' : 'Location needed'}</Text>
+      <Text style={styles.permissionCopy}>
+        {status === 'requesting'
+          ? 'Your phone should ask for permission now. We’ll use it once to find nearby cached bar intel.'
+          : error || 'Enter a ZIP first, or allow location access to find bars near you.'}
+      </Text>
     </View>
   );
 }
@@ -202,15 +226,15 @@ function DancingDrinksLoader() {
   );
 }
 
-function ResultsScreen({ onReset }: { onReset: () => void }) {
+function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: () => void }) {
   return (
     <SafeAreaView style={styles.screen} testID="results-screen">
       <ScrollView contentContainerStyle={styles.resultsCanvas}>
         <StickerBadge />
         <Text style={styles.resultsTitle}>Tonight’s cheapest buzz</Text>
-        <Text style={styles.resultsSubtitle}>Near your location</Text>
+        <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
         <RefreshingStatusStrip />
-        <Text style={styles.loadedToast}>Cached picks loaded from our latest bar intel.</Text>
+        <Text style={styles.loadedToast}>Demo cache for {lookup.lookupLabel}. Cached picks loaded from our latest bar intel.</Text>
         <DancingDrinksLoader />
         <View style={styles.resultsList}>
           {cachedResults.map((result) => (
@@ -225,7 +249,21 @@ function ResultsScreen({ onReset }: { onReset: () => void }) {
   );
 }
 
-function LocationGate({ onSearch }: { onSearch: () => void }) {
+function LocationGate({
+  zipValue,
+  lookupError,
+  locationStatus,
+  onZipChange,
+  onUseLocation,
+  onZipSearch,
+}: {
+  zipValue: string;
+  lookupError?: string;
+  locationStatus: LocationStatus;
+  onZipChange: (value: string) => void;
+  onUseLocation: () => void;
+  onZipSearch: () => void;
+}) {
   return (
     <SafeAreaView style={styles.screen} testID="north-star-screen">
       <View style={styles.canvas}>
@@ -244,13 +282,14 @@ function LocationGate({ onSearch }: { onSearch: () => void }) {
         <DrinkSticker type="cocktail" style={styles.cocktailSticker} />
 
         <View style={styles.formArea}>
-          <LocationButton onSearch={onSearch} />
+          <LocationButton onSearch={onUseLocation} status={locationStatus} />
           <View style={styles.orRow}>
             <View style={styles.orLine} />
             <Text style={styles.orText}>OR</Text>
             <View style={styles.orLine} />
           </View>
-          <ZipSearch onSearch={onSearch} />
+          <ZipSearch zipValue={zipValue} onZipChange={onZipChange} onSearch={onZipSearch} />
+          <LocationPermissionPanel status={locationStatus} error={lookupError} />
           <TrustLine />
         </View>
       </View>
@@ -260,12 +299,68 @@ function LocationGate({ onSearch }: { onSearch: () => void }) {
 
 export default function NorthStarScreen() {
   const [screen, setScreen] = useState<'location' | 'results'>('location');
+  const [zipValue, setZipValue] = useState('');
+  const [lookupError, setLookupError] = useState<string | undefined>();
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
+  const [lookup, setLookup] = useState<LookupContext>({ kind: 'zip', lookupLabel: 'Near 23220' });
+
+  const startLookup = (nextLookup: LookupContext) => {
+    setLookup(nextLookup);
+    setLookupError(undefined);
+    setLocationStatus('idle');
+    setScreen('results');
+  };
+
+  const handleZipSearch = () => {
+    const cleanZip = zipValue.trim();
+    if (!cleanZip) {
+      setLookupError('Enter a ZIP first, then tap Find bars.');
+      return;
+    }
+
+    startLookup({ kind: 'zip', lookupLabel: `Near ${cleanZip}` });
+  };
+
+  const handleUseLocation = () => {
+    setLookupError(undefined);
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationStatus('error');
+      setLookupError('Location is not available here. Use this ZIP to find bars instead.');
+      return;
+    }
+
+    setLocationStatus('requesting');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        startLookup({
+          kind: 'gps',
+          lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`,
+        });
+      },
+      () => {
+        setLocationStatus('error');
+        setLookupError('Location was not allowed. Use this ZIP to find bars instead.');
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  };
 
   if (screen === 'results') {
-    return <ResultsScreen onReset={() => setScreen('location')} />;
+    return <ResultsScreen lookup={lookup} onReset={() => setScreen('location')} />;
   }
 
-  return <LocationGate onSearch={() => setScreen('results')} />;
+  return (
+    <LocationGate
+      zipValue={zipValue}
+      lookupError={lookupError}
+      locationStatus={locationStatus}
+      onZipChange={setZipValue}
+      onUseLocation={handleUseLocation}
+      onZipSearch={handleZipSearch}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -466,6 +561,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
     paddingHorizontal: 48,
+  },
+  permissionPanel: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1.2,
+    borderColor: '#E8DCCB',
+    backgroundColor: '#FFF9ED',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  permissionTitle: {
+    color: tokens.ink,
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  permissionCopy: {
+    color: tokens.muted,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
   },
   trustText: {
     color: '#565656',

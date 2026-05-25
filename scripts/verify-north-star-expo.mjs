@@ -34,6 +34,10 @@ const requiredCopy = [
   'Using cached picks while we check for updates.',
   'Best known deal',
   'Cached picks loaded',
+  'Allow location access',
+  'Use this ZIP to find bars',
+  'Enter a ZIP first',
+  'Demo cache for',
 ];
 for (const copy of requiredCopy) {
   assert(app.includes(copy), `app/index.tsx contains copy: ${copy}`);
@@ -49,6 +53,7 @@ const requiredComponents = [
   'RefreshingStatusStrip',
   'DancingDrinksLoader',
   'RankedBarCard',
+  'LocationPermissionPanel',
 ];
 for (const component of requiredComponents) {
   assert(app.includes(component), `app/index.tsx defines/uses component: ${component}`);
@@ -62,6 +67,12 @@ assert(!app.includes('lockBubble') && !app.includes('lockText') && !app.includes
 assert(app.includes('#FAF8F2') || app.includes('#fbf8f1'), 'uses warm off-white background token');
 assert(app.includes('#F6B329') || app.includes('#f6b329'), 'uses amber CTA token');
 assert(app.includes('fontFamily'), 'uses explicit typography styling for theme');
+
+assert(app.includes('navigator.geolocation.getCurrentPosition'), 'Use my location requests browser geolocation before results');
+assert(app.includes('setLookupError'), 'ZIP path validates missing ZIP before lookup');
+assert(app.includes('zipValue.trim()'), 'Find bars uses the typed ZIP value for lookup context');
+assert(!app.includes("onSearch={() => setScreen('results')}"), 'location button must not jump directly to random fixture results');
+assert(app.includes('Demo cache for') && app.includes('lookupLabel'), 'results explain the current demo cache lookup context');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

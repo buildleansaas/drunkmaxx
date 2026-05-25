@@ -37,6 +37,8 @@ const requiredCopy = [
   'Use this ZIP to find bars',
   'Enter a ZIP first',
   'Showing cached picks for',
+  'Default filter: within 30 minutes',
+  'No saved drink intel for this ZIP yet.',
 ];
 for (const copy of requiredCopy) {
   assert(app.includes(copy), `app/index.tsx contains copy: ${copy}`);
@@ -53,6 +55,7 @@ const requiredComponents = [
   'DancingDrinksLoader',
   'RankedBarCard',
   'LocationPermissionPanel',
+  'EmptyResultsScreen',
 ];
 for (const component of requiredComponents) {
   assert(app.includes(component), `app/index.tsx defines/uses component: ${component}`);
@@ -72,6 +75,12 @@ assert(app.includes('setLookupError'), 'ZIP path validates missing ZIP before lo
 assert(app.includes('zipValue.trim()'), 'Find bars uses the typed ZIP value for lookup context');
 assert(!app.includes("onSearch={() => setScreen('results')}"), 'location button must not jump directly to random fixture results');
 assert(app.includes('Showing cached picks for') && app.includes('lookupLabel'), 'results explain the current cached lookup context');
+
+assert(app.includes('reverseGeocodeZip'), 'GPS lookup reverse geocodes coordinates into a ZIP before loading results');
+assert(app.includes('api.bigdatacloud.net/data/reverse-geocode-client') || app.includes('nominatim.openstreetmap.org/reverse'), 'reverse geocoding uses a free no-key API');
+assert(app.includes('filterResultsForLookup'), 'cached results are filtered by active ZIP/context');
+assert(app.includes('maxDriveMinutes') && app.includes('30'), 'results enforce default 30-minute drive filter');
+assert(!app.includes("lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`"), 'GPS results should not label by raw coordinates');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

@@ -38,11 +38,15 @@ type BarResult = {
   score: number;
   distance: string;
   freshness: string;
+  zip: string;
+  driveMinutes: number;
 };
 
 type LookupContext = {
   kind: 'gps' | 'zip';
+  zip: string;
   lookupLabel: string;
+  maxDriveMinutes: number;
 };
 
 type LocationStatus = 'idle' | 'requesting' | 'error';
@@ -54,6 +58,27 @@ const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
   cocktail: require('../assets/drinks/cocktail.png'),
 };
 
+const reverseGeocodeZip = async (latitude: number, longitude: number) => {
+  const endpoint = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`;
+  const response = await fetch(endpoint);
+
+  if (!response.ok) {
+    throw new Error('Reverse geocode failed');
+  }
+
+  const data = await response.json();
+  const zip = data.postcode || data.postalCode || data.principalSubdivisionCode;
+
+  if (!zip) {
+    throw new Error('No ZIP found for location');
+  }
+
+  return String(zip).slice(0, 5);
+};
+
+const filterResultsForLookup = (results: BarResult[], lookup: LookupContext) =>
+  results.filter((result) => result.zip === lookup.zip && result.driveMinutes <= lookup.maxDriveMinutes);
+
 const cachedResults: BarResult[] = [
   {
     rank: 1,
@@ -63,6 +88,8 @@ const cachedResults: BarResult[] = [
     score: 94,
     distance: '0.7 mi',
     freshness: 'Updated 3h ago',
+    zip: '23220',
+    driveMinutes: 8,
   },
   {
     rank: 2,
@@ -72,6 +99,8 @@ const cachedResults: BarResult[] = [
     score: 89,
     distance: '1.1 mi',
     freshness: 'Updated today',
+    zip: '23220',
+    driveMinutes: 12,
   },
   {
     rank: 3,
@@ -81,6 +110,8 @@ const cachedResults: BarResult[] = [
     score: 82,
     distance: '1.4 mi',
     freshness: 'Refreshing',
+    zip: '23220',
+    driveMinutes: 18,
   },
 ];
 
@@ -226,7 +257,32 @@ function DancingDrinksLoader() {
   );
 }
 
+function EmptyResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: () => void }) {
+  return (
+    <SafeAreaView style={styles.screen} testID="empty-results-screen">
+      <ScrollView contentContainerStyle={styles.resultsCanvas}>
+        <StickerBadge />
+        <Text style={styles.resultsTitle}>Nothing cached yet</Text>
+        <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
+        <RefreshingStatusStrip />
+        <Text style={styles.loadedToast}>No saved drink intel for this ZIP yet. We’ll refresh nearby bars instead of showing deals from another ZIP.</Text>
+        <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
+        <DancingDrinksLoader />
+        <Pressable style={styles.secondaryButton} onPress={onReset} accessibilityRole="button">
+          <Text style={styles.secondaryButtonText}>Try another ZIP</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: () => void }) {
+  const visibleResults = filterResultsForLookup(cachedResults, lookup);
+
+  if (visibleResults.length === 0) {
+    return <EmptyResultsScreen lookup={lookup} onReset={onReset} />;
+  }
+
   return (
     <SafeAreaView style={styles.screen} testID="results-screen">
       <ScrollView contentContainerStyle={styles.resultsCanvas}>
@@ -235,9 +291,10 @@ function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: ()
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
         <RefreshingStatusStrip />
         <Text style={styles.loadedToast}>Showing cached picks for {lookup.lookupLabel} while we refresh tonight’s deals.</Text>
+        <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
         <DancingDrinksLoader />
         <View style={styles.resultsList}>
-          {cachedResults.map((result) => (
+          {visibleResults.map((result) => (
             <RankedBarCard key={result.rank} result={result} />
           ))}
         </View>
@@ -302,7 +359,7 @@ export default function NorthStarScreen() {
   const [zipValue, setZipValue] = useState('');
   const [lookupError, setLookupError] = useState<string | undefined>();
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
-  const [lookup, setLookup] = useState<LookupContext>({ kind: 'zip', lookupLabel: 'Near 23220' });
+  const [lookup, setLookup] = useState<LookupContext>({ kind: 'zip', zip: '23220', lookupLabel: 'Near 23220', maxDriveMinutes: 30 });
 
   const startLookup = (nextLookup: LookupContext) => {
     setLookup(nextLookup);
@@ -318,7 +375,7 @@ export default function NorthStarScreen() {
       return;
     }
 
-    startLookup({ kind: 'zip', lookupLabel: `Near ${cleanZip}` });
+    startLookup({ kind: 'zip', zip: cleanZip, lookupLabel: `Near ${cleanZip}`, maxDriveMinutes: 30 });
   };
 
   const handleUseLocation = () => {
@@ -332,12 +389,17 @@ export default function NorthStarScreen() {
 
     setLocationStatus('requesting');
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
-        startLookup({
-          kind: 'gps',
-          lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`,
-        });
+
+        try {
+          const zip = await reverseGeocodeZip(latitude, longitude);
+          setZipValue(zip);
+          startLookup({ kind: 'gps', zip, lookupLabel: `Near ${zip}`, maxDriveMinutes: 30 });
+        } catch {
+          setLocationStatus('error');
+          setLookupError('We got your location, but could not find the ZIP. Enter it below to find bars.');
+        }
       },
       () => {
         setLocationStatus('error');
@@ -655,8 +717,18 @@ const styles = StyleSheet.create({
     color: '#4D4D4D',
     fontSize: 14,
     fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  filterText: {
+    width: '100%',
+    color: tokens.lime,
+    fontSize: 13,
+    fontWeight: '900',
     marginBottom: 12,
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   resultsList: {
     width: '100%',

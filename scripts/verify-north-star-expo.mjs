@@ -30,15 +30,16 @@ const requiredCopy = [
   'We use this once to rank nearby drink value.',
   'Tonight’s cheapest buzz',
   'Refreshing drink intel',
-  'Checking tonight’s drink intel',
   'Using cached picks while we check for updates.',
+  'Someone’s been sleeping on the job…',
+  'Enter your phone and we’ll text you when we’ve got tonight’s best plans.',
+  'Text me',
   'Best known deal',
   'Allow location access',
   'Use this ZIP to find bars',
   'Enter a ZIP first',
   'Showing cached picks for',
   'Default filter: within 30 minutes',
-  'No saved drink intel for this ZIP yet.',
 ];
 for (const copy of requiredCopy) {
   assert(app.includes(copy), `app/index.tsx contains copy: ${copy}`);
@@ -52,7 +53,7 @@ const requiredComponents = [
   'TrustLine',
   'ResultsScreen',
   'RefreshingStatusStrip',
-  'DancingDrinksLoader',
+  'ScrapeSignupLoader',
   'RankedBarCard',
   'LocationPermissionPanel',
   'EmptyResultsScreen',
@@ -64,6 +65,8 @@ for (const component of requiredComponents) {
 assert(app.includes('north-star-screen'), 'screen has north-star-screen testID');
 assert(app.includes('beer') && app.includes('martini') && app.includes('wine') && app.includes('cocktail'), 'screen includes four GPT-image drink sticker variants');
 assert(app.includes('assets/drinks/beer.png') && app.includes('assets/drinks/martini.png') && app.includes('assets/drinks/wine.png') && app.includes('assets/drinks/cocktail.png'), 'drink stickers use generated PNG app assets');
+assert(app.includes('assets/loading/sleeping-drinks.png'), 'no-cache loading state uses generated sleeping drink mascot image');
+assert(fs.existsSync(path.join(root, 'assets/loading/sleeping-drinks.png')), 'generated sleeping drink mascot asset exists');
 assert(!app.includes('🍺') && !app.includes('🍸') && !app.includes('🍷') && !app.includes('🍹'), 'drink stickers are generated PNGs, not emoji stand-ins');
 assert(!app.includes('lockBubble') && !app.includes('lockText') && !app.includes('▢'), 'trust line has no fake checkbox/lock decoration');
 assert(app.includes('#FAF8F2') || app.includes('#fbf8f1'), 'uses warm off-white background token');
@@ -81,6 +84,7 @@ assert(app.includes('api.bigdatacloud.net/data/reverse-geocode-client') || app.i
 assert(app.includes('filterResultsForLookup'), 'cached results are filtered by active ZIP/context');
 assert(app.includes('maxDriveMinutes') && app.includes('30'), 'results enforce default 30-minute drive filter');
 assert(!app.includes("lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`"), 'GPS results should not label by raw coordinates');
+assert(app.includes('phoneValue') && app.includes('textContentType="telephoneNumber"'), 'no-cache refresh state includes phone capture CTA');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

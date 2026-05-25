@@ -58,6 +58,8 @@ const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
   cocktail: require('../assets/drinks/cocktail.png'),
 };
 
+const sleepingDrinksAsset = require('../assets/loading/sleeping-drinks.png');
+
 const reverseGeocodeZip = async (latitude: number, longitude: number) => {
   const endpoint = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`;
   const response = await fetch(endpoint);
@@ -240,19 +242,45 @@ function RankedBarCard({ result }: { result: BarResult }) {
   );
 }
 
-function DancingDrinksLoader() {
+function ScrapeSignupLoader() {
+  const [phoneValue, setPhoneValue] = useState('');
+  const [signupMessage, setSignupMessage] = useState<string | undefined>();
+
+  const handleNotifyMe = () => {
+    const cleanedPhone = phoneValue.replace(/[^0-9]/g, '');
+
+    if (cleanedPhone.length < 10) {
+      setSignupMessage('Drop a real phone number so we can text you when the plan is ready.');
+      return;
+    }
+
+    setSignupMessage('Got it — we’ll text you when tonight’s best plans are ready.');
+  };
+
   return (
-    <View style={styles.loaderPanel}>
-      <View style={styles.danceRow}>
-        <Image source={drinkAssets.beer} style={[styles.danceDrink, styles.danceOne]} resizeMode="contain" />
-        <Image source={drinkAssets.martini} style={[styles.danceDrink, styles.danceTwo]} resizeMode="contain" />
-        <Image source={drinkAssets.wine} style={[styles.danceDrink, styles.danceThree]} resizeMode="contain" />
-        <Image source={drinkAssets.cocktail} style={[styles.danceDrink, styles.danceFour]} resizeMode="contain" />
+    <View style={styles.scrapePanel}>
+      <Image source={sleepingDrinksAsset} style={styles.sleepingDrinksImage} resizeMode="cover" accessibilityIgnoresInvertColors />
+      <Text style={styles.scrapeEyebrow}>DATA SCRAPE RUNNING</Text>
+      <Text style={styles.scrapeTitle}>Someone’s been sleeping on the job…</Text>
+      <Text style={styles.scrapeCopy}>
+        We’re waking up nearby bar intel now. Enter your phone and we’ll text you when we’ve got tonight’s best plans.
+      </Text>
+      <View style={styles.phoneSignupRow}>
+        <TextInput
+          placeholder="Phone number"
+          placeholderTextColor="#8C8C8C"
+          keyboardType="phone-pad"
+          textContentType="telephoneNumber"
+          style={styles.phoneInput}
+          value={phoneValue}
+          onChangeText={setPhoneValue}
+          onSubmitEditing={handleNotifyMe}
+        />
+        <Pressable style={styles.notifyButton} onPress={handleNotifyMe} accessibilityRole="button">
+          <Text style={styles.notifyButtonText}>Text me</Text>
+        </Pressable>
       </View>
-      <View style={styles.loaderTextBlock}>
-        <Text style={styles.loaderTitle}>Checking tonight’s drink intel</Text>
-        <Text style={styles.loaderStage}>Looking for menus…</Text>
-      </View>
+      {signupMessage ? <Text style={styles.signupMessage}>{signupMessage}</Text> : null}
     </View>
   );
 }
@@ -262,12 +290,10 @@ function EmptyResultsScreen({ lookup, onReset }: { lookup: LookupContext; onRese
     <SafeAreaView style={styles.screen} testID="empty-results-screen">
       <ScrollView contentContainerStyle={styles.resultsCanvas}>
         <StickerBadge />
-        <Text style={styles.resultsTitle}>Nothing cached yet</Text>
+        <Text style={styles.resultsTitle}>No cached picks yet</Text>
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
-        <RefreshingStatusStrip />
-        <Text style={styles.loadedToast}>No saved drink intel for this ZIP yet. We’ll refresh nearby bars instead of showing deals from another ZIP.</Text>
         <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
-        <DancingDrinksLoader />
+        <ScrapeSignupLoader />
         <Pressable style={styles.secondaryButton} onPress={onReset} accessibilityRole="button">
           <Text style={styles.secondaryButtonText}>Try another ZIP</Text>
         </Pressable>
@@ -292,7 +318,6 @@ function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: ()
         <RefreshingStatusStrip />
         <Text style={styles.loadedToast}>Showing cached picks for {lookup.lookupLabel} while we refresh tonight’s deals.</Text>
         <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
-        <DancingDrinksLoader />
         <View style={styles.resultsList}>
           {visibleResults.map((result) => (
             <RankedBarCard key={result.rank} result={result} />
@@ -449,7 +474,7 @@ const styles = StyleSheet.create({
     minHeight: 820,
     backgroundColor: tokens.paper,
     paddingHorizontal: 18,
-    paddingTop: 38,
+    paddingTop: 30,
     paddingBottom: 34,
     alignItems: 'center',
   },
@@ -513,7 +538,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 355,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
     zIndex: 2,
   },
   locationButton: {
@@ -632,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF9ED',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginTop: 14,
+    marginTop: 10,
   },
   permissionTitle: {
     color: tokens.ink,
@@ -675,13 +700,13 @@ const styles = StyleSheet.create({
   starThree: { right: 52, bottom: 198, fontSize: 22 },
   resultsTitle: {
     color: tokens.ink,
-    fontSize: 50,
-    lineHeight: 52,
+    fontSize: 44,
+    lineHeight: 46,
     fontWeight: '900',
     letterSpacing: -2,
     fontFamily: 'Arial Black',
     textAlign: 'center',
-    marginTop: -20,
+    marginTop: -24,
   },
   resultsSubtitle: {
     color: tokens.muted,
@@ -698,7 +723,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.white,
     paddingVertical: 14,
     paddingHorizontal: 18,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   refreshTitle: {
     color: tokens.ink,
@@ -823,55 +848,92 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     fontWeight: '800',
   },
-  loaderPanel: {
+  scrapePanel: {
     width: '100%',
     alignItems: 'center',
-    flexDirection: 'row',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1.5,
     borderColor: '#E8DCCB',
     backgroundColor: '#FFF9ED',
     marginTop: 4,
     marginBottom: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    overflow: 'hidden',
   },
-  loaderTextBlock: {
-    flex: 1,
-    paddingLeft: 8,
+  sleepingDrinksImage: {
+    width: '100%',
+    height: 132,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#EFE3D5',
+    backgroundColor: tokens.paper,
   },
-  loaderTitle: {
-    color: tokens.ink,
-    fontSize: 18,
-    lineHeight: 22,
+  scrapeEyebrow: {
+    color: tokens.lime,
+    fontSize: 12,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: 1.2,
+    marginTop: 14,
   },
-  loaderCopy: {
+  scrapeTitle: {
+    color: tokens.ink,
+    fontSize: 25,
+    lineHeight: 27,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  scrapeCopy: {
     color: tokens.muted,
     fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '600',
+    lineHeight: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    marginTop: 7,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
-  danceRow: {
+  phoneSignupRow: {
+    width: '100%',
+    minHeight: 54,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    width: 142,
-    height: 58,
+    borderRadius: 19,
+    backgroundColor: tokens.white,
+    borderWidth: 1.2,
+    borderColor: '#E8DCCB',
+    marginTop: 14,
+    overflow: 'hidden',
   },
-  danceDrink: { width: 42, height: 52, marginHorizontal: -5 },
-  danceOne: { transform: [{ rotate: '-8deg' }, { translateY: 5 }] },
-  danceTwo: { transform: [{ rotate: '6deg' }, { translateY: -6 }] },
-  danceThree: { transform: [{ rotate: '-4deg' }, { translateY: 2 }] },
-  danceFour: { transform: [{ rotate: '8deg' }, { translateY: -4 }] },
-  loaderStage: {
+  phoneInput: {
+    flex: 1,
+    color: tokens.ink,
+    fontSize: 18,
+    fontWeight: '700',
+    paddingHorizontal: 15,
+    outlineStyle: 'none' as never,
+  },
+  notifyButton: {
+    minWidth: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.amber,
+    borderLeftWidth: 1.2,
+    borderLeftColor: tokens.amberDark,
+  },
+  notifyButtonText: {
     color: tokens.ink,
     fontSize: 17,
     fontWeight: '900',
-    marginTop: 4,
+    letterSpacing: -0.4,
+  },
+  signupMessage: {
+    color: tokens.ink,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 10,
   },
   secondaryButton: {
     marginTop: 16,

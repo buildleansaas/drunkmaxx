@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSignUp } from '@clerk/clerk-expo';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
@@ -50,6 +52,43 @@ type LookupContext = {
 };
 
 type LocationStatus = 'idle' | 'requesting' | 'error';
+type VerificationStep = 'phone' | 'code' | 'verified';
+type ScrapeStep = 'queued' | 'scouting' | 'analyzing' | 'ranking' | 'complete';
+
+type ScrapeJob = {
+  step: ScrapeStep;
+  bars: BarResult[];
+  startedAt: number;
+  zip: string;
+};
+
+type PersistedAppState = {
+  zipValue: string;
+  phoneValue: string;
+  lookup?: LookupContext;
+  screen?: 'location' | 'results';
+  scrapeJob?: ScrapeJob;
+};
+
+const DRUNKMAXX_APP_STATE = 'DRUNKMAXX_APP_STATE';
+const isClerkPhoneEnabled = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+const persistAppState = async (state: PersistedAppState) => {
+  try {
+    await AsyncStorage.setItem(DRUNKMAXX_APP_STATE, JSON.stringify(state));
+  } catch {
+    // Persistence is best-effort; auth/location flow should still work.
+  }
+};
+
+const loadPersistedAppState = async (): Promise<PersistedAppState | undefined> => {
+  try {
+    const rawState = await AsyncStorage.getItem(DRUNKMAXX_APP_STATE);
+    return rawState ? JSON.parse(rawState) : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 const drinkAssets: Record<DrinkStickerProps['type'], ImageSourcePropType> = {
   beer: require('../assets/drinks/beer.png'),
@@ -116,6 +155,44 @@ const cachedResults: BarResult[] = [
     driveMinutes: 18,
   },
 ];
+
+const BAR_NAME_POOLS = [
+  ['The Rusty Nail', 'The Tipsy Goat', 'Last Call Lounge'],
+  ['The Drunk Tank', 'Barley & Hops', 'The Salty Siren'],
+  ['The Alibi Room', 'The Copper Mug', 'The Drunken Duck'],
+  ['The Lucky Horseshoe', 'The Stagger Inn', 'The Buzzed Bee'],
+  ['The Pour House', 'The Thirsty Scholar', 'The Wobbly Wheel'],
+];
+
+const DEAL_POOL = [
+  { deal: '$3.50 High Life', economics: '12oz · 4.6% · $3.50', score: 94 },
+  { deal: '$4 rail whiskey', economics: '1.5oz · 40% · $4', score: 89 },
+  { deal: '$5 draft special', economics: '16oz · 5.2% · $5', score: 82 },
+  { deal: '$2 PBR tallboy', economics: '16oz · 4.8% · $2', score: 97 },
+  { deal: '$6 craft pint', economics: '16oz · 6.8% · $6', score: 78 },
+  { deal: '$3.50 well shot', economics: '1.5oz · 40% · $3.50', score: 88 },
+];
+
+const generateSimulatedBars = (zip: string): BarResult[] => {
+  const seed = parseInt(zip, 10) || 23220;
+  const namePool = BAR_NAME_POOLS[seed % BAR_NAME_POOLS.length];
+  const distBase = (seed % 12) * 0.3 + 0.5;
+
+  return namePool.map((name, i) => {
+    const deal = DEAL_POOL[(seed + i * 7) % DEAL_POOL.length];
+    return {
+      rank: i + 1,
+      name,
+      deal: deal.deal,
+      economics: deal.economics,
+      score: deal.score,
+      distance: `${(distBase + i * 0.3).toFixed(1)} mi`,
+      freshness: 'Scouted just now',
+      zip,
+      driveMinutes: Math.round(distBase * 8 + i * 4 + 3),
+    };
+  });
+};
 
 function StickerBadge() {
   return (
@@ -242,8 +319,109 @@ function RankedBarCard({ result }: { result: BarResult }) {
   );
 }
 
-function ScrapeSignupLoader() {
-  const [phoneValue, setPhoneValue] = useState('');
+function PhoneNumberCapture({ phoneValue, onPhoneChange, onSubmit }: { phoneValue: string; onPhoneChange: (value: string) => void; onSubmit: () => void }) {
+  return (
+    <View style={styles.phoneSignupRow}>
+      <TextInput
+        placeholder="Phone number"
+        placeholderTextColor="#8C8C8C"
+        keyboardType="phone-pad"
+        textContentType="telephoneNumber"
+        style={styles.phoneInput}
+        value={phoneValue}
+        onChangeText={onPhoneChange}
+        onSubmitEditing={onSubmit}
+      />
+      <Pressable style={styles.notifyButton} onPress={onSubmit} accessibilityRole="button">
+        <Text style={styles.notifyButtonText}>Text me</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function ClerkPhoneVerification({ phoneValue, onPhoneChange }: { phoneValue: string; onPhoneChange: (value: string) => void }) {
+  const { isLoaded, signUp, setActive } = useSignUp();
+  const [verificationStep, setVerificationStep] = useState<VerificationStep>('phone');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [signupMessage, setSignupMessage] = useState<string | undefined>();
+
+  const handleNotifyMe = async () => {
+    const cleanedPhone = phoneValue.replace(/[^0-9+]/g, '');
+
+    if (cleanedPhone.replace(/[^0-9]/g, '').length < 10) {
+      setSignupMessage('Drop a real phone number so we can text you when the plan is ready.');
+      return;
+    }
+
+    if (!isLoaded) {
+      setSignupMessage('Auth is still loading. Try again in a sec.');
+      return;
+    }
+
+    try {
+      await signUp.create({ phoneNumber: cleanedPhone });
+      await signUp.preparePhoneNumberVerification({ strategy: 'phone_code' });
+      setVerificationStep('code');
+      setSignupMessage('Text code sent. Drop it in here and we’ll save your notification spot.');
+    } catch {
+      setSignupMessage('Could not start phone verification yet. Check the number and try again.');
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      setSignupMessage('Enter the text code Clerk sent you.');
+      return;
+    }
+
+    if (!isLoaded) return;
+
+    try {
+      const verification = await signUp.attemptPhoneNumberVerification({ code: verificationCode.trim() });
+      if (verification.status === 'complete') {
+        await setActive({ session: verification.createdSessionId });
+        setVerificationStep('verified');
+        setSignupMessage('Verified — we’ll text you when tonight’s best plans are ready.');
+      } else {
+        setSignupMessage('Almost there — Clerk needs one more verification step.');
+      }
+    } catch {
+      setSignupMessage('That code did not verify. Try the latest text code.');
+    }
+  };
+
+  if (verificationStep === 'code') {
+    return (
+      <>
+        <View style={styles.phoneSignupRow}>
+          <TextInput
+            placeholder="Text code"
+            placeholderTextColor="#8C8C8C"
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            style={styles.phoneInput}
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            onSubmitEditing={handleVerifyCode}
+          />
+          <Pressable style={styles.notifyButton} onPress={handleVerifyCode} accessibilityRole="button">
+            <Text style={styles.notifyButtonText}>Verify code</Text>
+          </Pressable>
+        </View>
+        {signupMessage ? <Text style={styles.signupMessage}>{signupMessage}</Text> : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PhoneNumberCapture phoneValue={phoneValue} onPhoneChange={onPhoneChange} onSubmit={handleNotifyMe} />
+      {signupMessage ? <Text style={styles.signupMessage}>{signupMessage}</Text> : null}
+    </>
+  );
+}
+
+function LocalPhoneCapture({ phoneValue, onPhoneChange }: { phoneValue: string; onPhoneChange: (value: string) => void }) {
   const [signupMessage, setSignupMessage] = useState<string | undefined>();
 
   const handleNotifyMe = () => {
@@ -254,9 +432,18 @@ function ScrapeSignupLoader() {
       return;
     }
 
-    setSignupMessage('Got it — we’ll text you when tonight’s best plans are ready.');
+    setSignupMessage('Saved locally for now — Clerk phone verification turns on when the production key is configured.');
   };
 
+  return (
+    <>
+      <PhoneNumberCapture phoneValue={phoneValue} onPhoneChange={onPhoneChange} onSubmit={handleNotifyMe} />
+      {signupMessage ? <Text style={styles.signupMessage}>{signupMessage}</Text> : null}
+    </>
+  );
+}
+
+function ScrapeSignupLoader({ phoneValue, onPhoneChange, scrapeJob }: { phoneValue: string; onPhoneChange: (value: string) => void; scrapeJob?: ScrapeJob }) {
   return (
     <View style={styles.scrapePanel}>
       <Image source={sleepingDrinksAsset} style={styles.sleepingDrinksImage} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -265,27 +452,68 @@ function ScrapeSignupLoader() {
       <Text style={styles.scrapeCopy}>
         We’re waking up nearby bar intel now. Enter your phone and we’ll text you when we’ve got tonight’s best plans.
       </Text>
-      <View style={styles.phoneSignupRow}>
-        <TextInput
-          placeholder="Phone number"
-          placeholderTextColor="#8C8C8C"
-          keyboardType="phone-pad"
-          textContentType="telephoneNumber"
-          style={styles.phoneInput}
-          value={phoneValue}
-          onChangeText={setPhoneValue}
-          onSubmitEditing={handleNotifyMe}
-        />
-        <Pressable style={styles.notifyButton} onPress={handleNotifyMe} accessibilityRole="button">
-          <Text style={styles.notifyButtonText}>Text me</Text>
-        </Pressable>
-      </View>
-      {signupMessage ? <Text style={styles.signupMessage}>{signupMessage}</Text> : null}
+      {scrapeJob ? <ScrapeProgressPanel job={scrapeJob} /> : null}
+      {isClerkPhoneEnabled ? (
+        <ClerkPhoneVerification phoneValue={phoneValue} onPhoneChange={onPhoneChange} />
+      ) : (
+        <LocalPhoneCapture phoneValue={phoneValue} onPhoneChange={onPhoneChange} />
+      )}
+      {scrapeJob?.step === 'complete' && scrapeJob.bars.length > 0 ? (
+        <View style={styles.scrapeResultsList}>
+          <Text style={styles.scrapeResultsTitle}>Tonight’s best bar plans</Text>
+          {scrapeJob.bars.map((bar) => (
+            <RankedBarCard key={bar.rank} result={bar} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+const SCRAPE_STEP_LABELS: Record<ScrapeStep, string> = {
+  queued: 'Queuing drink intel request…',
+  scouting: 'Scouting Google Maps for nearby bars…',
+  analyzing: 'Analyzing drink menus with LLM scout…',
+  ranking: 'Ranking by buzz-per-dollar value…',
+  complete: 'Scrape complete — plan ready',
+};
+
+function ScrapeProgressPanel({ job }: { job: ScrapeJob }) {
+  const stepOrder: ScrapeStep[] = ['queued', 'scouting', 'analyzing', 'ranking', 'complete'];
+  const currentIndex = stepOrder.indexOf(job.step);
+
+  return (
+    <View style={styles.scrapeProgressWrap}>
+      {stepOrder.map((step, i) => {
+        const isActive = i === currentIndex;
+        const isDone = i < currentIndex;
+        return (
+          <View key={step} style={[styles.scrapeStepRow, isActive && styles.scrapeStepActive]}>
+            <Text style={[styles.scrapeStepDot, isDone && styles.scrapeStepDotDone, isActive && styles.scrapeStepDotActive]}>
+              {isDone ? '✓' : isActive ? '◉' : '○'}
+            </Text>
+            <Text style={[styles.scrapeStepLabel, isDone && styles.scrapeStepLabelDone, isActive && styles.scrapeStepLabelActive]}>
+              {SCRAPE_STEP_LABELS[step]}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-function EmptyResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: () => void }) {
+function EmptyResultsScreen({
+  lookup,
+  phoneValue,
+  onPhoneChange,
+  onReset,
+  scrapeJob,
+}: {
+  lookup: LookupContext;
+  phoneValue: string;
+  onPhoneChange: (value: string) => void;
+  onReset: () => void;
+  scrapeJob?: ScrapeJob;
+}) {
   return (
     <SafeAreaView style={styles.screen} testID="empty-results-screen">
       <ScrollView contentContainerStyle={styles.resultsCanvas}>
@@ -293,7 +521,7 @@ function EmptyResultsScreen({ lookup, onReset }: { lookup: LookupContext; onRese
         <Text style={styles.resultsTitle}>No cached picks yet</Text>
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
         <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
-        <ScrapeSignupLoader />
+        <ScrapeSignupLoader phoneValue={phoneValue} onPhoneChange={onPhoneChange} scrapeJob={scrapeJob} />
         <Pressable style={styles.secondaryButton} onPress={onReset} accessibilityRole="button">
           <Text style={styles.secondaryButtonText}>Try another ZIP</Text>
         </Pressable>
@@ -302,11 +530,26 @@ function EmptyResultsScreen({ lookup, onReset }: { lookup: LookupContext; onRese
   );
 }
 
-function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: () => void }) {
-  const visibleResults = filterResultsForLookup(cachedResults, lookup);
+function ResultsScreen({
+  lookup,
+  phoneValue,
+  onPhoneChange,
+  onReset,
+  scrapeJob,
+}: {
+  lookup: LookupContext;
+  phoneValue: string;
+  onPhoneChange: (value: string) => void;
+  onReset: () => void;
+  scrapeJob?: ScrapeJob;
+}) {
+  const cachedFiltered = filterResultsForLookup(cachedResults, lookup);
+  const visibleResults = cachedFiltered.length > 0
+    ? cachedFiltered
+    : (scrapeJob?.step === 'complete' ? scrapeJob.bars : []);
 
   if (visibleResults.length === 0) {
-    return <EmptyResultsScreen lookup={lookup} onReset={onReset} />;
+    return <EmptyResultsScreen lookup={lookup} phoneValue={phoneValue} onPhoneChange={onPhoneChange} onReset={onReset} scrapeJob={scrapeJob} />;
   }
 
   return (
@@ -316,7 +559,12 @@ function ResultsScreen({ lookup, onReset }: { lookup: LookupContext; onReset: ()
         <Text style={styles.resultsTitle}>Tonight’s cheapest buzz</Text>
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
         <RefreshingStatusStrip />
-        <Text style={styles.loadedToast}>Showing cached picks for {lookup.lookupLabel} while we refresh tonight’s deals.</Text>
+        <Text style={styles.loadedToast}>
+          {cachedFiltered.length > 0
+            ? `Showing cached picks for ${lookup.lookupLabel} while we refresh tonight’s deals.`
+            : `Scouted fresh intel for ${lookup.lookupLabel} — reviewed.`
+          }
+        </Text>
         <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
         <View style={styles.resultsList}>
           {visibleResults.map((result) => (
@@ -351,7 +599,7 @@ function LocationGate({
       <View style={styles.canvas}>
         <StickerBadge />
 
-        <Text style={styles.heroTitle}>Let’s Get{`\n`}Drunk</Text>
+        <Text style={styles.heroTitle}>{HERO_TITLE.replace(' Get ', ' Get\n')}</Text>
         <Text style={styles.subtitle}>Find tonight’s best bar{`\n`}by buzz-per-dollar.</Text>
 
         <Text style={[styles.star, styles.starOne]}>✧</Text>
@@ -382,14 +630,71 @@ function LocationGate({
 export default function NorthStarScreen() {
   const [screen, setScreen] = useState<'location' | 'results'>('location');
   const [zipValue, setZipValue] = useState('');
+  const [phoneValue, setPhoneValue] = useState('');
   const [lookupError, setLookupError] = useState<string | undefined>();
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [lookup, setLookup] = useState<LookupContext>({ kind: 'zip', zip: '23220', lookupLabel: 'Near 23220', maxDriveMinutes: 30 });
+  const [scrapeJob, setScrapeJob] = useState<ScrapeJob | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadPersistedAppState().then((restoredState) => {
+      if (!isMounted || !restoredState) return;
+
+      if (restoredState.zipValue) setZipValue(restoredState.zipValue);
+      if (restoredState.phoneValue) setPhoneValue(restoredState.phoneValue);
+
+      const restoredLookup = restoredState.lookup;
+      if (restoredLookup?.zip) {
+        setLookup(restoredLookup);
+        setScreen('results');
+      }
+      if (restoredState.scrapeJob?.zip === restoredLookup?.zip && restoredState.scrapeJob.step === 'complete') {
+        setScrapeJob(restoredState.scrapeJob);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    persistAppState({ zipValue, phoneValue, lookup, screen, scrapeJob: scrapeJob ?? undefined });
+  }, [zipValue, phoneValue, lookup, screen, scrapeJob]);
+
+  useEffect(() => {
+    if (!scrapeJob || scrapeJob.step === 'complete') return;
+
+    const stepDelays: Record<string, number> = {
+      queued: 1200,
+      scouting: 3000,
+      analyzing: 3000,
+      ranking: 2500,
+    };
+
+    const timer = setTimeout(() => {
+      const stepOrder: ScrapeStep[] = ['queued', 'scouting', 'analyzing', 'ranking', 'complete'];
+      const currentIndex = stepOrder.indexOf(scrapeJob.step);
+      const nextStep = stepOrder[currentIndex + 1];
+
+      if (nextStep === 'complete') {
+        setScrapeJob({ ...scrapeJob, step: 'complete', bars: generateSimulatedBars(scrapeJob.zip) });
+      } else {
+        setScrapeJob({ ...scrapeJob, step: nextStep });
+      }
+    }, stepDelays[scrapeJob.step]);
+
+    return () => clearTimeout(timer);
+  }, [scrapeJob]);
 
   const startLookup = (nextLookup: LookupContext) => {
     setLookup(nextLookup);
     setLookupError(undefined);
     setLocationStatus('idle');
+    const hasCached = filterResultsForLookup(cachedResults, nextLookup).length > 0;
+    setScrapeJob(hasCached ? null : { step: 'queued', bars: [], startedAt: Date.now(), zip: nextLookup.zip });
     setScreen('results');
   };
 
@@ -434,8 +739,13 @@ export default function NorthStarScreen() {
     );
   };
 
+  const handleReset = () => {
+    setScrapeJob(null);
+    setScreen('location');
+  };
+
   if (screen === 'results') {
-    return <ResultsScreen lookup={lookup} onReset={() => setScreen('location')} />;
+    return <ResultsScreen lookup={lookup} phoneValue={phoneValue} onPhoneChange={setPhoneValue} onReset={handleReset} scrapeJob={scrapeJob ?? undefined} />;
   }
 
   return (
@@ -948,5 +1258,58 @@ const styles = StyleSheet.create({
     color: tokens.ink,
     fontSize: 16,
     fontWeight: '900',
+  },
+  scrapeProgressWrap: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginTop: 8,
+  },
+  scrapeStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 5,
+    opacity: 0.45,
+  },
+  scrapeStepActive: {
+    opacity: 1,
+  },
+  scrapeStepDot: {
+    width: 20,
+    textAlign: 'center',
+    fontSize: 15,
+    color: tokens.muted,
+  },
+  scrapeStepDotDone: {
+    color: tokens.lime,
+  },
+  scrapeStepDotActive: {
+    color: tokens.amber,
+  },
+  scrapeStepLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.muted,
+    flex: 1,
+  },
+  scrapeStepLabelDone: {
+    color: tokens.ink,
+  },
+  scrapeStepLabelActive: {
+    color: tokens.ink,
+    fontWeight: '800',
+  },
+  scrapeResultsList: {
+    width: '100%',
+    gap: 12,
+    marginTop: 12,
+  },
+  scrapeResultsTitle: {
+    color: tokens.ink,
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });

@@ -85,6 +85,27 @@ assert(app.includes('filterResultsForLookup'), 'cached results are filtered by a
 assert(app.includes('maxDriveMinutes') && app.includes('30'), 'results enforce default 30-minute drive filter');
 assert(!app.includes("lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`"), 'GPS results should not label by raw coordinates');
 assert(app.includes('phoneValue') && app.includes('textContentType="telephoneNumber"'), 'no-cache refresh state includes phone capture CTA');
+assert(pkg.dependencies?.['@clerk/clerk-expo'], 'package.json includes Clerk Expo for phone verification');
+assert(pkg.dependencies?.['@react-native-async-storage/async-storage'], 'package.json includes AsyncStorage for persisted app state');
+assert(app.includes('useSignUp') && app.includes('preparePhoneNumberVerification') && app.includes('attemptPhoneNumberVerification'), 'phone capture uses Clerk phone code verification flow');
+assert(app.includes('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY'), 'Clerk publishable key env is wired with safe fallback');
+assert(app.includes('DRUNKMAXX_APP_STATE') && app.includes('persistAppState') && app.includes('loadPersistedAppState'), 'ZIP/phone/lookup state persists across refreshes');
+assert(app.includes('verificationCode') && app.includes('Text code') && app.includes('Verify code'), 'UI redirects phone entry into text code verification input');
+assert(app.includes("setScreen('results')") && app.includes('restoredLookup'), 'saved ZIP/lookup automatically reopens results page on reload');
+
+// Scrape job simulation assertions
+assert(app.includes('generateSimulatedBars'), 'no-cache ZIP generates simulated bars via deterministic function');
+assert(app.includes('ScrapeProgressPanel'), 'scrape progress panel component exists');
+assert(app.includes('SCRAPE_STEP_LABELS'), 'scrape step labels defined');
+assert(app.includes('queued') && app.includes('scouting') && app.includes('analyzing') && app.includes('ranking'), 'scrape job has all 4 non-terminal step states');
+assert(app.includes('Scouting Google Maps'), 'scrape progress shows scouting step copy');
+assert(app.includes('Analyzing drink menus'), 'scrape progress shows LLM-analyzing step copy');
+assert(app.includes('Ranking by buzz-per-dollar'), 'scrape progress shows ranking step copy');
+assert(app.includes('scrapeJob: scrapeJob ?? undefined'), 'scrape job is persisted in AsyncStorage app state');
+assert(app.includes('setScrapeJob'), 'scrape job state is managed with setter function');
+assert(app.includes('ScoutTask') || app.includes('generateSimulatedBars'), 'no-cache path generates candidate bar results for ZIP');
+assert(app.includes('Scouted just now'), 'scraped bar results use freshness label');
+assert(app.includes('scrapeResultsList'), 'completed scrape renders bar cards list');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# expo / production exports
+/.expo/
+/dist/
+/web-build/
+
 # production
 /build
 

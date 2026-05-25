@@ -1,43 +1,32 @@
 # DrunkMaxx
 
-**Maxx Your Buzz. Double X.**
+Expo-first mobile web/app prototype for finding tonight’s best bar by **buzz-per-dollar**.
 
-The provocative PWA for finding the best places to get drunk based on **vibe + budget + real menu math**.
+## North-star slice
 
-Live prototype: https://github.com/buildleansaas/drunkmaxx (deploy to Vercel for instant PWA preview)
+The current implementation starts with the approved simple sticker-style screen:
 
-## The Idea (spiked from voice note)
-
-People ask "yo where should we go get drunk?" 
-
-One guy says "I know how to **DrunkMaxx**."
-
-This app calculates the **highest level of intoxication** you can achieve for your exact budget in your chosen vibe by analyzing drink prices vs ABV/proof.
-
-- Interactive "Drunk Maxx Calculator"
-- Vibe cards (Dive Bar, Neon Club, Cocktail Lounge, Sports, Social Mixer, Rooftop)
-- Live leaderboard of top spots with DrunkMaxx Scores
-- Funny intoxication levels ("Properly Sauced", "Blackout Ready", "Legendary Maxx")
-- Dark neon aesthetic, fully responsive, PWA installable on phone for nights out
-- Completely non-sexual despite the provocative name — pure drunk-maxxing fun
-
-Built as a single Next.js PWA to validate the concept before full backend/menu-scraping development.
+- `ARE YOU DRUNKMAXXING?`
+- `Let’s Get Drunk`
+- Location permission CTA
+- ZIP search fallback
+- Low-ink drink sticker icon language
+- Expo Web now, iOS/Android later
 
 ## Tech
 
-- Next.js 16 + TypeScript + Tailwind
-- Client-side React state for the calculator (fixture data for Austin, TX bars)
-- PWA-ready with manifest
-- Glassmorphic + neon glow UI
+- Expo Router
+- React Native + React Native Web
+- TypeScript
+- Fixture-first app flow; real data/auth/maps come in later slices
 
-## Next Steps
+## Commands
 
-1. Deploy this to Vercel for a live URL.
-2. Add real data sources (menu APIs, Google Places, user submissions).
-3. Group sessions / shareable maxx plans.
-4. City "Nomad Lists" for drinking.
-5. Full mobile app if PWA traction is strong.
+```bash
+pnpm install
+pnpm run verify
+pnpm run web
+pnpm run export:web
+```
 
-**Drink responsibly. Maxx wisely.**
-
-See `docs/product-brief.md` for full product thesis.
+See `docs/product-brief.md` for the full product thesis and flow constraints.

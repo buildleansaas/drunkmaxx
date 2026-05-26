@@ -18,7 +18,27 @@ The current implementation starts with the approved simple sticker-style screen:
 - Expo Router
 - React Native + React Native Web
 - TypeScript
-- Fixture-first app flow; real data/auth/maps come in later slices
+- Fixture-first app flow while the real data worker is added in slices
+- Vercel Serverless Functions for Mongo-backed scrape jobs
+
+## Scrape job API
+
+This slice adds the first real backend seam:
+
+- `POST /api/scrape-jobs` creates a queued Mongo job and returns `{ jobId, job }`.
+- `GET /api/scrape-jobs/:jobId` returns the current job status/results.
+- Collection: `drunkmaxx_scrape_jobs`.
+- Statuses: `queued`, `running`, `complete`, `failed`, `stale`.
+
+Required Vercel env:
+
+```bash
+MONGO_URI=mongodb+srv://...
+# Optional; defaults to drunkmaxx
+MONGO_DB_NAME=drunkmaxx
+```
+
+The worker is intentionally not part of this slice. The next slice should claim `queued` jobs atomically and write marked worker output.
 
 ## Commands
 

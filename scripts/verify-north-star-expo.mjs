@@ -87,6 +87,7 @@ assert(!app.includes("lookupLabel: `Near ${latitude.toFixed(3)}, ${longitude.toF
 assert(app.includes('phoneValue') && app.includes('textContentType="telephoneNumber"'), 'no-cache refresh state includes phone capture CTA');
 assert(pkg.dependencies?.['@clerk/clerk-expo'], 'package.json includes Clerk Expo for phone verification');
 assert(pkg.dependencies?.['@react-native-async-storage/async-storage'], 'package.json includes AsyncStorage for persisted app state');
+assert(pkg.dependencies?.mongodb, 'package.json includes MongoDB driver for real scrape job API');
 assert(app.includes('useSignUp') && app.includes('preparePhoneNumberVerification') && app.includes('attemptPhoneNumberVerification'), 'phone capture uses Clerk phone code verification flow');
 assert(app.includes('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY'), 'Clerk publishable key env is wired with safe fallback');
 assert(app.includes('DRUNKMAXX_APP_STATE') && app.includes('persistAppState') && app.includes('loadPersistedAppState'), 'ZIP/phone/lookup state persists across refreshes');
@@ -126,6 +127,19 @@ assert(app.includes('Appearance.addChangeListener'), 'theme responds to system d
 assert(app.includes('ThemeToggle'), 'UI includes a sun/moon theme toggle');
 assert(app.includes('toggleThemePreference'), 'theme toggle cycles user preference');
 assert(app.includes('darkTokens'), 'dark palette tokens are defined');
+
+// Real Mongo-backed scrape job API assertions
+const scrapeApi = read('api/scrape-jobs.mjs');
+const scrapePollApi = read('api/scrape-jobs/[jobId].mjs');
+const scrapeJobs = read('lib/scrapeJobs.mjs');
+const mongo = read('lib/mongo.mjs');
+assert(scrapeApi.includes('createScrapeJob') && scrapeApi.includes('202'), 'POST /api/scrape-jobs creates queued Mongo job');
+assert(scrapePollApi.includes('getScrapeJob') && scrapePollApi.includes('jobId'), 'GET /api/scrape-jobs/:jobId polls a Mongo job');
+assert(mongo.includes('MONGO_URI') && mongo.includes('MongoClient'), 'Mongo helper uses MONGO_URI without hardcoded credentials');
+assert(scrapeJobs.includes('drunkmaxx_scrape_jobs'), 'scrape jobs use drunkmaxx_scrape_jobs collection');
+assert(scrapeJobs.includes('queued') && scrapeJobs.includes('running') && scrapeJobs.includes('complete') && scrapeJobs.includes('failed') && scrapeJobs.includes('stale'), 'scrape job statuses are defined');
+assert(scrapeJobs.includes('createIndex({ status: 1, createdAt: 1 })'), 'scrape job queue index exists');
+assert(scrapeJobs.includes('buildSearchTerms') && scrapeJobs.includes('brewery') && scrapeJobs.includes('winery') && scrapeJobs.includes('happy hour'), 'queued jobs store alcohol search terms');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

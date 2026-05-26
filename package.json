@@ -10,6 +10,7 @@
     "ios": "expo start --ios",
     "export:web": "expo export --platform web",
     "verify": "node scripts/verify-north-star-expo.mjs",
+    "worker:once": "node scripts/scrape-worker.mjs --once",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -29,16 +29,16 @@ const requiredCopy = [
   'Find bars',
   'We use this once to rank nearby drink value.',
   'Tonight’s cheapest buzz',
-  'Refreshing drink intel',
-  'Using cached picks while we check for updates.',
-  'Someone’s been sleeping on the job…',
-  'Enter your phone and we’ll text you when we’ve got tonight’s best plans.',
+  'Cached demo picks',
+  'Showing cached demo data while the real scout worker is being built.',
+  'Demo scout preview',
+  'Real bar/deal scraping is not connected yet.',
   'Text me',
   'Best known deal',
   'Allow location access',
   'Use this ZIP to find bars',
   'Enter a ZIP first',
-  'Showing cached picks for',
+  'Showing cached demo picks for',
   'Default filter: within 30 minutes',
 ];
 for (const copy of requiredCopy) {
@@ -77,7 +77,7 @@ assert(app.includes('navigator.geolocation.getCurrentPosition'), 'Use my locatio
 assert(app.includes('setLookupError'), 'ZIP path validates missing ZIP before lookup');
 assert(app.includes('zipValue.trim()'), 'Find bars uses the typed ZIP value for lookup context');
 assert(!app.includes("onSearch={() => setScreen('results')}"), 'location button must not jump directly to random fixture results');
-assert(app.includes('Showing cached picks for') && app.includes('lookupLabel'), 'results explain the current cached lookup context');
+assert(app.includes('Showing cached demo picks for') && app.includes('lookupLabel'), 'results explain the current cached lookup context');
 
 assert(app.includes('reverseGeocodeZip'), 'GPS lookup reverse geocodes coordinates into a ZIP before loading results');
 assert(app.includes('api.bigdatacloud.net/data/reverse-geocode-client') || app.includes('nominatim.openstreetmap.org/reverse'), 'reverse geocoding uses a free no-key API');
@@ -98,14 +98,34 @@ assert(app.includes('generateSimulatedBars'), 'no-cache ZIP generates simulated 
 assert(app.includes('ScrapeProgressPanel'), 'scrape progress panel component exists');
 assert(app.includes('SCRAPE_STEP_LABELS'), 'scrape step labels defined');
 assert(app.includes('queued') && app.includes('scouting') && app.includes('analyzing') && app.includes('ranking'), 'scrape job has all 4 non-terminal step states');
-assert(app.includes('Scouting Google Maps'), 'scrape progress shows scouting step copy');
-assert(app.includes('Analyzing drink menus'), 'scrape progress shows LLM-analyzing step copy');
-assert(app.includes('Ranking by buzz-per-dollar'), 'scrape progress shows ranking step copy');
+assert(app.includes('Preparing demo preview'), 'scrape progress honestly labels queued demo state');
+assert(app.includes('Generating placeholder bars'), 'scrape progress honestly labels placeholder generation');
+assert(app.includes('Sorting demo cards'), 'scrape progress honestly labels demo ranking');
 assert(app.includes('scrapeJob: scrapeJob ?? undefined'), 'scrape job is persisted in AsyncStorage app state');
 assert(app.includes('setScrapeJob'), 'scrape job state is managed with setter function');
 assert(app.includes('ScoutTask') || app.includes('generateSimulatedBars'), 'no-cache path generates candidate bar results for ZIP');
-assert(app.includes('Scouted just now'), 'scraped bar results use freshness label');
+assert(app.includes('Generated demo preview'), 'placeholder bar results use honest demo freshness label');
 assert(app.includes('scrapeResultsList'), 'completed scrape renders bar cards list');
+
+const forbiddenLiveScrapeCopy = [
+  'Scouted fresh intel',
+  'Scouted just now',
+  'DATA SCRAPE RUNNING',
+  'Scouting Google Maps',
+  'Analyzing drink menus',
+  'we’ll text you when we’ve got tonight’s best plans',
+];
+for (const copy of forbiddenLiveScrapeCopy) {
+  assert(!app.includes(copy), `app/index.tsx must not imply real scrape is live: ${copy}`);
+}
+
+assert(app.includes('useColorScheme'), 'theme reads system color scheme');
+assert(app.includes('DRUNKMAXX_THEME_MODE'), 'theme preference persists separately from app state');
+assert(app.includes("ThemePreference = 'system' | 'light' | 'dark'"), 'theme supports system/light/dark preference');
+assert(app.includes('Appearance.addChangeListener'), 'theme responds to system dark/light changes');
+assert(app.includes('ThemeToggle'), 'UI includes a sun/moon theme toggle');
+assert(app.includes('toggleThemePreference'), 'theme toggle cycles user preference');
+assert(app.includes('darkTokens'), 'dark palette tokens are defined');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

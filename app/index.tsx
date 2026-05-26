@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSignUp } from '@clerk/clerk-expo';
 import React, { useEffect, useState } from 'react';
 import {
+  Appearance,
   Image,
   ImageSourcePropType,
   Pressable,
@@ -11,9 +12,28 @@ import {
   Text,
   TextInput,
   View,
+  useColorScheme,
 } from 'react-native';
 
-const tokens = {
+type ThemePreference = 'system' | 'light' | 'dark';
+type ResolvedTheme = 'light' | 'dark';
+type ThemeTokens = {
+  paper: string;
+  ink: string;
+  muted: string;
+  softLine: string;
+  amber: string;
+  amberDark: string;
+  lime: string;
+  red: string;
+  white: string;
+  card: string;
+  input: string;
+  overlay: string;
+  shadow: string;
+};
+
+const lightTokens: ThemeTokens = {
   paper: '#FAF8F2',
   ink: '#111111',
   muted: '#5F5F5F',
@@ -23,7 +43,29 @@ const tokens = {
   lime: '#9BAE12',
   red: '#B3263B',
   white: '#FFFDF8',
+  card: '#FFFDF8',
+  input: '#FFFDF8',
+  overlay: 'rgba(255, 253, 248, 0.92)',
+  shadow: '#111111',
 };
+
+const darkTokens: ThemeTokens = {
+  paper: '#15110C',
+  ink: '#FFF7E8',
+  muted: '#C9BDA9',
+  softLine: '#3E3326',
+  amber: '#F6B329',
+  amberDark: '#FFCF67',
+  lime: '#D1E35D',
+  red: '#FF6B7D',
+  white: '#241B13',
+  card: '#211910',
+  input: '#2A2117',
+  overlay: 'rgba(33, 25, 16, 0.94)',
+  shadow: '#000000',
+};
+
+let tokens = lightTokens;
 
 const HERO_TITLE = 'Let’s Get Drunk';
 
@@ -71,7 +113,30 @@ type PersistedAppState = {
 };
 
 const DRUNKMAXX_APP_STATE = 'DRUNKMAXX_APP_STATE';
+const DRUNKMAXX_THEME_MODE = 'DRUNKMAXX_THEME_MODE';
 const isClerkPhoneEnabled = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+const resolveThemePreference = (preference: ThemePreference, systemScheme: 'light' | 'dark' | null | undefined): ResolvedTheme => {
+  if (preference === 'light' || preference === 'dark') return preference;
+  return systemScheme === 'dark' ? 'dark' : 'light';
+};
+
+const loadThemePreference = async (): Promise<ThemePreference> => {
+  try {
+    const storedPreference = await AsyncStorage.getItem(DRUNKMAXX_THEME_MODE);
+    return storedPreference === 'light' || storedPreference === 'dark' || storedPreference === 'system' ? storedPreference : 'system';
+  } catch {
+    return 'system';
+  }
+};
+
+const persistThemePreference = async (preference: ThemePreference) => {
+  try {
+    await AsyncStorage.setItem(DRUNKMAXX_THEME_MODE, preference);
+  } catch {
+    // Theme persistence is best-effort; system mode still works.
+  }
+};
 
 const persistAppState = async (state: PersistedAppState) => {
   try {
@@ -187,7 +252,7 @@ const generateSimulatedBars = (zip: string): BarResult[] => {
       economics: deal.economics,
       score: deal.score,
       distance: `${(distBase + i * 0.3).toFixed(1)} mi`,
-      freshness: 'Scouted just now',
+      freshness: 'Generated demo preview',
       zip,
       driveMinutes: Math.round(distBase * 8 + i * 4 + 3),
     };
@@ -213,6 +278,18 @@ function Spark({ side }: { side: 'left' | 'right' }) {
       <View style={[styles.sparkLine, styles.sparkLineMiddle]} />
       <View style={styles.sparkLine} />
     </View>
+  );
+}
+
+function ThemeToggle({ preference, resolvedTheme, onToggle }: { preference: ThemePreference; resolvedTheme: ResolvedTheme; onToggle: () => void }) {
+  const icon = resolvedTheme === 'dark' ? '☾' : '☀';
+  const label = preference === 'system' ? `System ${resolvedTheme}` : `${preference} mode`;
+
+  return (
+    <Pressable style={styles.themeToggle} onPress={onToggle} accessibilityRole="button" accessibilityLabel="Toggle dark and light mode">
+      <Text style={styles.themeToggleIcon}>{icon}</Text>
+      <Text style={styles.themeToggleText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -289,11 +366,15 @@ function TrustLine() {
   );
 }
 
-function RefreshingStatusStrip() {
+function RefreshingStatusStrip({ isDemo }: { isDemo: boolean }) {
   return (
     <View style={styles.refreshStrip}>
-      <Text style={styles.refreshTitle}>Refreshing drink intel</Text>
-      <Text style={styles.refreshCopy}>Using cached picks while we check for updates.</Text>
+      <Text style={styles.refreshTitle}>{isDemo ? 'Generated demo preview' : 'Cached demo picks'}</Text>
+      <Text style={styles.refreshCopy}>
+        {isDemo
+          ? 'These are placeholder bars only. Real bar/deal scraping is not connected yet.'
+          : 'Showing cached demo data while the real scout worker is being built.'}
+      </Text>
     </View>
   );
 }
@@ -447,10 +528,10 @@ function ScrapeSignupLoader({ phoneValue, onPhoneChange, scrapeJob }: { phoneVal
   return (
     <View style={styles.scrapePanel}>
       <Image source={sleepingDrinksAsset} style={styles.sleepingDrinksImage} resizeMode="cover" accessibilityIgnoresInvertColors />
-      <Text style={styles.scrapeEyebrow}>DATA SCRAPE RUNNING</Text>
-      <Text style={styles.scrapeTitle}>Someone’s been sleeping on the job…</Text>
+      <Text style={styles.scrapeEyebrow}>DEMO SCOUT PREVIEW</Text>
+      <Text style={styles.scrapeTitle}>Demo scout preview</Text>
       <Text style={styles.scrapeCopy}>
-        We’re waking up nearby bar intel now. Enter your phone and we’ll text you when we’ve got tonight’s best plans.
+        Real bar/deal scraping is not connected yet. This screen is a placeholder preview for the Mongo-backed Hermes worker we are building next.
       </Text>
       {scrapeJob ? <ScrapeProgressPanel job={scrapeJob} /> : null}
       {isClerkPhoneEnabled ? (
@@ -470,11 +551,11 @@ function ScrapeSignupLoader({ phoneValue, onPhoneChange, scrapeJob }: { phoneVal
   );
 }
 const SCRAPE_STEP_LABELS: Record<ScrapeStep, string> = {
-  queued: 'Queuing drink intel request…',
-  scouting: 'Scouting Google Maps for nearby bars…',
-  analyzing: 'Analyzing drink menus with LLM scout…',
-  ranking: 'Ranking by buzz-per-dollar value…',
-  complete: 'Scrape complete — plan ready',
+  queued: 'Preparing demo preview…',
+  scouting: 'Generating placeholder bars…',
+  analyzing: 'Marking results as unverified…',
+  ranking: 'Sorting demo cards…',
+  complete: 'Demo preview ready',
 };
 
 function ScrapeProgressPanel({ job }: { job: ScrapeJob }) {
@@ -536,12 +617,18 @@ function ResultsScreen({
   onPhoneChange,
   onReset,
   scrapeJob,
+  themePreference,
+  resolvedTheme,
+  onThemeToggle,
 }: {
   lookup: LookupContext;
   phoneValue: string;
   onPhoneChange: (value: string) => void;
   onReset: () => void;
   scrapeJob?: ScrapeJob;
+  themePreference: ThemePreference;
+  resolvedTheme: ResolvedTheme;
+  onThemeToggle: () => void;
 }) {
   const cachedFiltered = filterResultsForLookup(cachedResults, lookup);
   const visibleResults = cachedFiltered.length > 0
@@ -555,14 +642,15 @@ function ResultsScreen({
   return (
     <SafeAreaView style={styles.screen} testID="results-screen">
       <ScrollView contentContainerStyle={styles.resultsCanvas}>
+        <ThemeToggle preference={themePreference} resolvedTheme={resolvedTheme} onToggle={onThemeToggle} />
         <StickerBadge />
         <Text style={styles.resultsTitle}>Tonight’s cheapest buzz</Text>
         <Text style={styles.resultsSubtitle}>{lookup.lookupLabel}</Text>
-        <RefreshingStatusStrip />
+        <RefreshingStatusStrip isDemo={cachedFiltered.length === 0} />
         <Text style={styles.loadedToast}>
           {cachedFiltered.length > 0
-            ? `Showing cached picks for ${lookup.lookupLabel} while we refresh tonight’s deals.`
-            : `Scouted fresh intel for ${lookup.lookupLabel} — reviewed.`
+            ? `Showing cached demo picks for ${lookup.lookupLabel}.`
+            : `Generated demo preview for ${lookup.lookupLabel}. These cards are not real verified bars yet.`
           }
         </Text>
         <Text style={styles.filterText}>Default filter: within 30 minutes</Text>
@@ -586,6 +674,9 @@ function LocationGate({
   onZipChange,
   onUseLocation,
   onZipSearch,
+  themePreference,
+  resolvedTheme,
+  onThemeToggle,
 }: {
   zipValue: string;
   lookupError?: string;
@@ -593,10 +684,14 @@ function LocationGate({
   onZipChange: (value: string) => void;
   onUseLocation: () => void;
   onZipSearch: () => void;
+  themePreference: ThemePreference;
+  resolvedTheme: ResolvedTheme;
+  onThemeToggle: () => void;
 }) {
   return (
     <SafeAreaView style={styles.screen} testID="north-star-screen">
       <View style={styles.canvas}>
+        <ThemeToggle preference={themePreference} resolvedTheme={resolvedTheme} onToggle={onThemeToggle} />
         <StickerBadge />
 
         <Text style={styles.heroTitle}>{HERO_TITLE.replace(' Get ', ' Get\n')}</Text>
@@ -635,6 +730,35 @@ export default function NorthStarScreen() {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [lookup, setLookup] = useState<LookupContext>({ kind: 'zip', zip: '23220', lookupLabel: 'Near 23220', maxDriveMinutes: 30 });
   const [scrapeJob, setScrapeJob] = useState<ScrapeJob | null>(null);
+  const systemScheme = useColorScheme();
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark' | null | undefined>(systemScheme);
+  const resolvedTheme = resolveThemePreference(themePreference, systemTheme);
+  tokens = resolvedTheme === 'dark' ? darkTokens : lightTokens;
+  styles = createStyles(tokens);
+
+  useEffect(() => {
+    setSystemTheme(systemScheme);
+  }, [systemScheme]);
+
+  useEffect(() => {
+    loadThemePreference().then(setThemePreference);
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemTheme(colorScheme);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const toggleThemePreference = () => {
+    const nextPreference: ThemePreference = themePreference === 'system'
+      ? (resolvedTheme === 'dark' ? 'light' : 'dark')
+      : themePreference === 'dark'
+        ? 'light'
+        : 'system';
+    setThemePreference(nextPreference);
+    persistThemePreference(nextPreference);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -745,7 +869,18 @@ export default function NorthStarScreen() {
   };
 
   if (screen === 'results') {
-    return <ResultsScreen lookup={lookup} phoneValue={phoneValue} onPhoneChange={setPhoneValue} onReset={handleReset} scrapeJob={scrapeJob ?? undefined} />;
+    return (
+      <ResultsScreen
+        lookup={lookup}
+        phoneValue={phoneValue}
+        onPhoneChange={setPhoneValue}
+        onReset={handleReset}
+        scrapeJob={scrapeJob ?? undefined}
+        themePreference={themePreference}
+        resolvedTheme={resolvedTheme}
+        onThemeToggle={toggleThemePreference}
+      />
+    );
   }
 
   return (
@@ -756,11 +891,14 @@ export default function NorthStarScreen() {
       onZipChange={setZipValue}
       onUseLocation={handleUseLocation}
       onZipSearch={handleZipSearch}
+      themePreference={themePreference}
+      resolvedTheme={resolvedTheme}
+      onThemeToggle={toggleThemePreference}
     />
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: ThemeTokens) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: tokens.paper,
@@ -802,10 +940,34 @@ const styles = StyleSheet.create({
     borderColor: '#EFE8DE',
     paddingVertical: 12,
     paddingHorizontal: 23,
-    shadowColor: '#000',
+    shadowColor: tokens.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 7 },
+  },
+  themeToggle: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: tokens.softLine,
+    backgroundColor: tokens.card,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 18,
+  },
+  themeToggleIcon: {
+    color: tokens.amber,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  themeToggleText: {
+    color: tokens.ink,
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'capitalize',
   },
   badgeText: {
     color: tokens.ink,
@@ -836,7 +998,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   subtitle: {
-    color: '#565656',
+    color: tokens.muted,
     fontSize: 25,
     lineHeight: 35,
     fontWeight: '600',
@@ -899,10 +1061,10 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1.5,
-    backgroundColor: '#D2D0CB',
+    backgroundColor: tokens.softLine,
   },
   orText: {
-    color: '#6F6F6F',
+    color: tokens.muted,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 2,
@@ -914,8 +1076,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     backgroundColor: tokens.white,
     borderWidth: 1.2,
-    borderColor: '#EEE6DC',
-    shadowColor: '#000',
+    borderColor: tokens.softLine,
+    shadowColor: tokens.shadow,
     shadowOpacity: 0.06,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
@@ -929,7 +1091,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 25,
     borderBottomLeftRadius: 25,
   },
-  zipIcon: { color: '#9B9B9B', fontSize: 24, fontWeight: '800' },
+  zipIcon: { color: tokens.muted, fontSize: 24, fontWeight: '800' },
   zipInput: {
     flex: 1,
     color: tokens.ink,
@@ -963,8 +1125,8 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 18,
     borderWidth: 1.2,
-    borderColor: '#E8DCCB',
-    backgroundColor: '#FFF9ED',
+    borderColor: tokens.softLine,
+    backgroundColor: tokens.card,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginTop: 10,
@@ -984,7 +1146,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   trustText: {
-    color: '#565656',
+    color: tokens.muted,
     fontSize: 15.5,
     fontWeight: '500',
     textAlign: 'center',
@@ -1029,7 +1191,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: '#E8DCCB',
+    borderColor: tokens.softLine,
     backgroundColor: tokens.white,
     paddingVertical: 14,
     paddingHorizontal: 18,
@@ -1049,7 +1211,7 @@ const styles = StyleSheet.create({
   },
   loadedToast: {
     width: '100%',
-    color: '#4D4D4D',
+    color: tokens.muted,
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 8,
@@ -1075,10 +1237,10 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 24,
     borderWidth: 1.3,
-    borderColor: '#E8DCCB',
+    borderColor: tokens.softLine,
     backgroundColor: tokens.white,
     padding: 14,
-    shadowColor: '#000',
+    shadowColor: tokens.shadow,
     shadowOpacity: 0.05,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 7 },
@@ -1133,7 +1295,7 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     color: tokens.ink,
-    backgroundColor: '#F5EBCB',
+    backgroundColor: tokens.overlay,
     borderRadius: 12,
     overflow: 'hidden',
     paddingHorizontal: 9,
@@ -1142,7 +1304,7 @@ const styles = StyleSheet.create({
   },
   distanceText: {
     color: tokens.ink,
-    backgroundColor: '#EFF0D6',
+    backgroundColor: tokens.overlay,
     borderRadius: 12,
     overflow: 'hidden',
     paddingHorizontal: 9,
@@ -1150,8 +1312,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   freshnessText: {
-    color: tokens.muted,
-    backgroundColor: '#F3EEE7',
+    color: tokens.ink,
+    backgroundColor: tokens.overlay,
     borderRadius: 12,
     overflow: 'hidden',
     paddingHorizontal: 9,
@@ -1163,8 +1325,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: '#E8DCCB',
-    backgroundColor: '#FFF9ED',
+    borderColor: tokens.softLine,
+    backgroundColor: tokens.card,
     marginTop: 4,
     marginBottom: 12,
     paddingVertical: 16,
@@ -1176,7 +1338,7 @@ const styles = StyleSheet.create({
     height: 132,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#EFE3D5',
+    borderColor: tokens.softLine,
     backgroundColor: tokens.paper,
   },
   scrapeEyebrow: {
@@ -1211,7 +1373,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: tokens.white,
     borderWidth: 1.2,
-    borderColor: '#E8DCCB',
+    borderColor: tokens.softLine,
     marginTop: 14,
     overflow: 'hidden',
   },
@@ -1249,7 +1411,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 18,
     borderWidth: 1.4,
-    borderColor: '#D8CCBC',
+    borderColor: tokens.softLine,
     paddingVertical: 12,
     paddingHorizontal: 18,
     backgroundColor: tokens.white,
@@ -1313,3 +1475,5 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 });
+
+let styles = createStyles(lightTokens);

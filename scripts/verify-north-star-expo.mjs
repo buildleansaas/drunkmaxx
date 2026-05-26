@@ -144,8 +144,13 @@ assert(scrapeJobs.includes('claimQueuedScrapeJob') && scrapeJobs.includes('findO
 assert(scrapeJobs.includes('completeScrapeJob') && scrapeJobs.includes('workerMetadata') && scrapeJobs.includes('failScrapeJob'), 'worker can complete or fail claimed jobs with marked output');
 const scrapeWorker = read('scripts/scrape-worker.mjs');
 assert(pkg.scripts?.['worker:once']?.includes('scrape-worker.mjs --once'), 'package.json exposes worker:once scaffold command');
+assert(pkg.scripts?.['verify:source-adapter']?.includes('verify-source-adapter.mjs'), 'package.json exposes source adapter contract');
 assert(scrapeWorker.includes('--once') && scrapeWorker.includes('claimQueuedScrapeJob') && scrapeWorker.includes('completeScrapeJob'), 'worker scaffold supports one-shot claim/writeback mode');
-assert(scrapeWorker.includes('worker_scaffold_marker') && scrapeWorker.includes('liveScrape: false'), 'worker writes marked non-live scaffold output');
+assert(scrapeWorker.includes('buildSourceAdapterResults') && scrapeWorker.includes('adapter_v1') && scrapeWorker.includes('liveScrape: false'), 'worker writes marked non-live source adapter output');
+const sourceAdapter = read('lib/sourceAdapter.mjs');
+assert(sourceAdapter.includes('normalizeCandidateFromEvidence') && sourceAdapter.includes('buildSourceAdapterResults'), 'source adapter normalizes evidence-linked candidates');
+assert(sourceAdapter.includes('venue_deal_candidate') && sourceAdapter.includes('verifiedLiveDeal: false'), 'source adapter candidate schema avoids live deal claims');
+assert(sourceAdapter.includes('Source adapter candidate only; no SMS/outreach sent.'), 'source adapter output includes no-send warning');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

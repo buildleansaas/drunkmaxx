@@ -140,6 +140,12 @@ assert(scrapeJobs.includes('drunkmaxx_scrape_jobs'), 'scrape jobs use drunkmaxx_
 assert(scrapeJobs.includes('queued') && scrapeJobs.includes('running') && scrapeJobs.includes('complete') && scrapeJobs.includes('failed') && scrapeJobs.includes('stale'), 'scrape job statuses are defined');
 assert(scrapeJobs.includes('createIndex({ status: 1, createdAt: 1 })'), 'scrape job queue index exists');
 assert(scrapeJobs.includes('buildSearchTerms') && scrapeJobs.includes('brewery') && scrapeJobs.includes('winery') && scrapeJobs.includes('happy hour'), 'queued jobs store alcohol search terms');
+assert(scrapeJobs.includes('claimQueuedScrapeJob') && scrapeJobs.includes('findOneAndUpdate') && scrapeJobs.includes('returnDocument'), 'worker can atomically claim queued scrape jobs');
+assert(scrapeJobs.includes('completeScrapeJob') && scrapeJobs.includes('workerMetadata') && scrapeJobs.includes('failScrapeJob'), 'worker can complete or fail claimed jobs with marked output');
+const scrapeWorker = read('scripts/scrape-worker.mjs');
+assert(pkg.scripts?.['worker:once']?.includes('scrape-worker.mjs --once'), 'package.json exposes worker:once scaffold command');
+assert(scrapeWorker.includes('--once') && scrapeWorker.includes('claimQueuedScrapeJob') && scrapeWorker.includes('completeScrapeJob'), 'worker scaffold supports one-shot claim/writeback mode');
+assert(scrapeWorker.includes('worker_scaffold_marker') && scrapeWorker.includes('liveScrape: false'), 'worker writes marked non-live scaffold output');
 
 if (process.exitCode) process.exit(1);
 console.log('North-star Expo screen contract passed.');

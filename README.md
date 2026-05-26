@@ -38,7 +38,11 @@ MONGO_URI=mongodb+srv://...
 MONGO_DB_NAME=drunkmaxx
 ```
 
-The worker is intentionally not part of this slice. The next slice should claim `queued` jobs atomically and write marked worker output.
+The first worker slice claims `queued` jobs atomically and writes a marked scaffold result. It still does not run live venue scraping or send SMS.
+
+```bash
+pnpm worker:once
+```
 
 ## Commands
 

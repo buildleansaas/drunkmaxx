@@ -2,6 +2,7 @@
 
 import { getMongoUriStatus } from '../lib/mongo.mjs';
 import { claimQueuedScrapeJob, completeScrapeJob, failScrapeJob } from '../lib/scrapeJobs.mjs';
+import { buildSourceAdapterResults } from '../lib/sourceAdapter.mjs';
 
 function parseArgs(argv) {
   const args = new Set(argv.slice(2));
@@ -19,18 +20,21 @@ function parseArgs(argv) {
   };
 }
 
-function buildMarkedWorkerResults(job) {
-  const primaryTerms = (job.searchTerms || []).slice(0, 6);
+function buildAdapterWorkerResults(job) {
+  const candidates = buildSourceAdapterResults(job);
   return [
     {
-      type: 'worker_scaffold_marker',
-      title: 'Worker scaffold claimed this job',
-      source: 'drunkmaxx-worker-scaffold',
-      summary: 'No live venue scraping has run yet. This marked result proves the queue claim/writeback loop works.',
+      type: 'source_adapter_summary',
+      title: 'Source adapter generated conservative venue/deal candidates',
+      source: 'adapter_v1',
+      summary: 'Adapter output is evidence-linked and marked non-live. No SMS, outreach, or live deal claims were sent.',
       zip: job.zip,
-      searchTerms: primaryTerms,
+      candidateCount: candidates.length,
+      liveScrape: false,
       generatedAt: new Date().toISOString(),
+      warnings: ['Review evidence before publishing or sending any recommendation.'],
     },
+    ...candidates,
   ];
 }
 
@@ -60,12 +64,12 @@ async function runOnce(options) {
   }
 
   try {
-    const completed = await completeScrapeJob(job.jobId, buildMarkedWorkerResults(job), {
+    const completed = await completeScrapeJob(job.jobId, buildAdapterWorkerResults(job), {
       workerId: options.workerId,
-      mode: 'scaffold',
+      mode: 'adapter_v1',
       liveScrape: false,
     });
-    console.log(`Completed scrape job ${completed.jobId} with scaffold marker output.`);
+    console.log(`Completed scrape job ${completed.jobId} with source adapter candidate output.`);
   } catch (error) {
     await failScrapeJob(job.jobId, error);
     throw error;
